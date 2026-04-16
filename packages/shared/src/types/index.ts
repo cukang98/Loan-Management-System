@@ -1,4 +1,4 @@
-import { LoanStatus, RepaymentFrequency, InterestModel } from '../enums';
+import { LoanStatus, RepaymentFrequency, InterestModel, PermissionModule, PermissionAction } from '../enums';
 
 // Generic API response wrappers
 export interface ApiResponse<T> {
@@ -18,8 +18,8 @@ export interface PaginatedResponse<T> extends ApiResponse<PaginatedData<T>> {}
 
 // Permission & User Group
 export interface PermissionDto {
-  module: string;
-  action: string;
+  module: PermissionModule;
+  action: PermissionAction;
 }
 
 export interface UserGroupDto {
@@ -46,6 +46,7 @@ export interface AuthUserDto {
   id: string;
   email: string;
   name: string;
+  isActive: boolean;
   userGroup: UserGroupDto | null;
 }
 
