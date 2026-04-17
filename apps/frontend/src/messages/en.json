@@ -1,0 +1,140 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "customers": "Customers",
+    "lenders": "Lenders",
+    "loans": "Loans",
+    "repayments": "Repayments",
+    "users": "Users",
+    "userGroups": "User Groups",
+    "logout": "Logout"
+  },
+  "auth": {
+    "login": "Login",
+    "email": "Email",
+    "password": "Password",
+    "loginButton": "Sign In",
+    "loginTitle": "Loan Management System",
+    "loginSubtitle": "Sign in to your account",
+    "invalidCredentials": "Invalid email or password"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalLoans": "Total Loans",
+    "activeLoans": "Active Loans",
+    "completedLoans": "Completed",
+    "defaultedLoans": "Defaulted",
+    "totalOutstanding": "Total Outstanding",
+    "overdueCount": "Overdue Repayments",
+    "monthlyChart": "Monthly Disbursement vs Repayment",
+    "statusChart": "Loan Status Breakdown",
+    "overdueTrend": "Overdue Trend",
+    "disbursed": "Disbursed",
+    "repaid": "Repaid"
+  },
+  "customers": {
+    "title": "Customer Management",
+    "addCustomer": "Add Customer",
+    "editCustomer": "Edit Customer",
+    "fullName": "Full Name",
+    "phone": "Phone",
+    "email": "Email",
+    "address": "Address",
+    "notes": "Notes",
+    "loanCount": "Loans",
+    "deleteConfirm": "Are you sure you want to delete this customer?"
+  },
+  "lenders": {
+    "title": "Lender Management",
+    "addLender": "Add Lender",
+    "editLender": "Edit Lender",
+    "name": "Name",
+    "availableCapital": "Available Capital",
+    "totalLent": "Total Lent",
+    "deleteConfirm": "Are you sure you want to delete this lender?"
+  },
+  "loans": {
+    "title": "Loan Management",
+    "addLoan": "Add Loan",
+    "customer": "Customer",
+    "lender": "Lender",
+    "principal": "Principal",
+    "interestRate": "Annual Rate (%)",
+    "tenureMonths": "Tenure (months)",
+    "repaymentFrequency": "Repayment Frequency",
+    "interestModel": "Interest Model",
+    "totalRepayment": "Total Repayment",
+    "installmentAmount": "Installment Amount",
+    "status": "Status",
+    "startDate": "Start Date",
+    "statusActive": "Active",
+    "statusCompleted": "Completed",
+    "statusDefaulted": "Defaulted",
+    "freqWeekly": "Weekly",
+    "freqBiweekly": "Bi-weekly",
+    "freqMonthly": "Monthly",
+    "modelFlat": "Flat Rate",
+    "modelReducing": "Reducing Balance",
+    "recordRepayment": "Record Repayment"
+  },
+  "repayments": {
+    "title": "Repayment Records",
+    "addRepayment": "Record Repayment",
+    "paidAmount": "Amount Paid",
+    "paidAt": "Payment Date",
+    "remainingBalance": "Remaining Balance",
+    "overdueDays": "Overdue Days",
+    "notes": "Notes"
+  },
+  "users": {
+    "title": "User Management",
+    "addUser": "Add User",
+    "editUser": "Edit User",
+    "name": "Name",
+    "email": "Email",
+    "password": "Password",
+    "userGroup": "User Group",
+    "isActive": "Active",
+    "deleteConfirm": "Are you sure you want to delete this user?"
+  },
+  "userGroups": {
+    "title": "User Group Management",
+    "addGroup": "Add Group",
+    "editGroup": "Edit Group",
+    "name": "Group Name",
+    "isSuperAdmin": "Super Admin",
+    "permissions": "Permissions",
+    "userCount": "Users",
+    "modules": {
+      "loans": "Loans",
+      "customers": "Customers",
+      "lenders": "Lenders",
+      "repayments": "Repayments",
+      "users": "Users",
+      "user-groups": "User Groups"
+    },
+    "actions": {
+      "create": "Create",
+      "read": "Read",
+      "update": "Update",
+      "delete": "Delete"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "search": "Search",
+    "loading": "Loading...",
+    "noData": "No data",
+    "actions": "Actions",
+    "createdAt": "Created At",
+    "yes": "Yes",
+    "no": "No",
+    "confirm": "Confirm",
+    "success": "Operation successful",
+    "error": "Operation failed",
+    "total": "{count} total"
+  }
+}
