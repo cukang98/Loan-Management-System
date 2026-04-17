@@ -32,17 +32,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : String(exception),
     );
 
-    const errorBody =
+    const rawBody =
       typeof message === 'object' && message !== null
-        ? message
+        ? (message as Record<string, unknown>)
         : { message };
+
+    // Spread error body but ensure envelope fields (statusCode, success) are not overridden
+    const { statusCode: _s, success: _ok, timestamp: _t, path: _p, ...safeBody } = rawBody as Record<string, unknown>;
 
     response.status(status).json({
       success: false,
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
-      ...errorBody,
+      ...safeBody,
     });
   }
 }
