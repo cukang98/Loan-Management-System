@@ -1,0 +1,132 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  isActive      Boolean        @default(true)
+  userGroupId   String?
+  userGroup     UserGroup?     @relation(fields: [userGroupId], references: [id])
+  refreshTokens RefreshToken[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([email])
+}
+
+model UserGroup {
+  id           String       @id @default(cuid())
+  name         String       @unique
+  isSuperAdmin Boolean      @default(false)
+  permissions  Permission[]
+  users        User[]
+  createdAt    DateTime     @default(now())
+}
+
+model Permission {
+  id          String    @id @default(cuid())
+  module      String
+  action      String
+  userGroupId String
+  userGroup   UserGroup @relation(fields: [userGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([module, action, userGroupId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Lender {
+  id               String   @id @default(cuid())
+  name             String
+  availableCapital Decimal  @db.Decimal(15, 2)
+  totalLent        Decimal  @default(0) @db.Decimal(15, 2)
+  loans            Loan[]
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  fullName  String
+  phone     String
+  email     String?
+  address   String?
+  notes     String?
+  loans     Loan[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([fullName])
+}
+
+model Loan {
+  id                 String             @id @default(cuid())
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id])
+  lenderId           String
+  lender             Lender             @relation(fields: [lenderId], references: [id])
+  principal          Decimal            @db.Decimal(15, 2)
+  interestRate       Decimal            @db.Decimal(5, 2)
+  tenureMonths       Int
+  repaymentFrequency RepaymentFrequency
+  interestModel      InterestModel
+  totalRepayment     Decimal            @db.Decimal(15, 2)
+  installmentAmount  Decimal            @db.Decimal(15, 2)
+  status             LoanStatus         @default(ACTIVE)
+  startDate          DateTime
+  repayments         Repayment[]
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([customerId])
+  @@index([lenderId])
+  @@index([status])
+}
+
+model Repayment {
+  id               String   @id @default(cuid())
+  loanId           String
+  loan             Loan     @relation(fields: [loanId], references: [id])
+  paidAmount       Decimal  @db.Decimal(15, 2)
+  paidAt           DateTime
+  remainingBalance Decimal  @db.Decimal(15, 2)
+  overdueDays      Int      @default(0)
+  notes            String?
+  createdAt        DateTime @default(now())
+
+  @@index([loanId])
+}
+
+enum LoanStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+}
+
+enum RepaymentFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+}
+
+enum InterestModel {
+  FLAT
+  REDUCING
+}
