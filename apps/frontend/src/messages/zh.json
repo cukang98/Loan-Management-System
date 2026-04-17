@@ -7,7 +7,8 @@
     "repayments": "还款",
     "users": "用户",
     "userGroups": "用户组",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "admin": "管理"
   },
   "auth": {
     "login": "登录",
@@ -75,7 +76,15 @@
     "freqMonthly": "每月",
     "modelFlat": "固定利率",
     "modelReducing": "递减余额",
-    "recordRepayment": "记录还款"
+    "recordRepayment": "记录还款",
+    "backToLoans": "返回贷款列表",
+    "detailTitle": "贷款详情",
+    "repaymentHistory": "还款记录",
+    "noRepayments": "暂无还款记录",
+    "months": "月",
+    "overdueLabel": "逾期",
+    "balance": "余额",
+    "days": "天"
   },
   "repayments": {
     "title": "还款记录",

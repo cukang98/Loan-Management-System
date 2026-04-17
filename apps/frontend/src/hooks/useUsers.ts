@@ -1,11 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
+import type { AxiosError } from 'axios';
 import api from '@/lib/axios';
+import type { UserDto, PaginatedData } from '@ck-loan/shared';
 
 interface UserQuery { page?: number; limit?: number; search?: string; }
 
+type ApiErrorResponse = AxiosError<{ message?: string }>;
+
 export const useUsers = (query: UserQuery = {}) =>
-  useQuery({
+  useQuery<PaginatedData<UserDto>>({
     queryKey: ['users', query],
     queryFn: async () => {
       const res = await api.get('/users', { params: query });
@@ -19,7 +23,7 @@ export const useCreateUser = () => {
   return useMutation({
     mutationFn: (data: unknown) => api.post('/users', data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['users'] }); message.success('用户已创建'); },
-    onError: (err: any) => message.error(err?.response?.data?.message || '操作失败'),
+    onError: (err: ApiErrorResponse) => message.error(err?.response?.data?.message || '操作失败'),
   });
 };
 

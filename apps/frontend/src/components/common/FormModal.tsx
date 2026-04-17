@@ -29,8 +29,12 @@ export function FormModal({
   const t = useTranslations('common');
 
   const handleOk = async () => {
-    const values = await form.validateFields();
-    await onSubmit(values);
+    try {
+      const values = await form.validateFields();
+      await onSubmit(values);
+    } catch {
+      // Ant Design already displays field-level validation errors; nothing extra needed
+    }
   };
 
   const handleClose = () => {

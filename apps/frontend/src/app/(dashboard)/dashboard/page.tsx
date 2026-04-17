@@ -89,7 +89,7 @@ export default function DashboardPage() {
                     outerRadius={100}
                     label={({ status, percent }) => `${status} ${(percent * 100).toFixed(0)}%`}
                   >
-                    {charts?.statusBreakdown.map((entry) => (
+                    {charts?.statusBreakdown?.map((entry) => (
                       <Cell key={entry.status} fill={STATUS_COLORS[entry.status] || '#ccc'} />
                     ))}
                   </Pie>

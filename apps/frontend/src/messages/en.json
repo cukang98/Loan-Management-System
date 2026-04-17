@@ -7,7 +7,8 @@
     "repayments": "Repayments",
     "users": "Users",
     "userGroups": "User Groups",
-    "logout": "Logout"
+    "logout": "Logout",
+    "admin": "Admin"
   },
   "auth": {
     "login": "Login",
@@ -75,7 +76,15 @@
     "freqMonthly": "Monthly",
     "modelFlat": "Flat Rate",
     "modelReducing": "Reducing Balance",
-    "recordRepayment": "Record Repayment"
+    "recordRepayment": "Record Repayment",
+    "backToLoans": "Back to Loans",
+    "detailTitle": "Loan Detail",
+    "repaymentHistory": "Repayment History",
+    "noRepayments": "No repayments yet",
+    "months": "M",
+    "overdueLabel": "Overdue",
+    "balance": "Balance",
+    "days": "days"
   },
   "repayments": {
     "title": "Repayment Records",

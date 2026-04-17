@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
 import api from '@/lib/axios';
+import type { CustomerDto, PaginatedData } from '@ck-loan/shared';
 
 interface CustomerQuery {
   page?: number;
@@ -9,8 +10,8 @@ interface CustomerQuery {
 }
 
 export const useCustomers = (query: CustomerQuery = {}) =>
-  useQuery({
-    queryKey: ['customers', query],
+  useQuery<PaginatedData<CustomerDto>>({
+    queryKey: ['customers', 'list', query],
     queryFn: async () => {
       const res = await api.get('/customers', { params: query });
       return res.data.data;

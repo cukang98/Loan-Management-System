@@ -1,11 +1,15 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
+import type { AxiosError } from 'axios';
 import api from '@/lib/axios';
+import type { RepaymentDto, PaginatedData } from '@ck-loan/shared';
 
 interface RepaymentQuery { page?: number; limit?: number; loanId?: string; }
 
+type ApiErrorResponse = AxiosError<{ message?: string }>;
+
 export const useRepayments = (query: RepaymentQuery = {}) =>
-  useQuery({
+  useQuery<PaginatedData<RepaymentDto>>({
     queryKey: ['repayments', query],
     queryFn: async () => {
       const res = await api.get('/repayments', { params: query });
@@ -23,6 +27,6 @@ export const useCreateRepayment = () => {
       qc.invalidateQueries({ queryKey: ['loans'] });
       message.success('还款记录已添加');
     },
-    onError: (err: any) => message.error(err?.response?.data?.message || '操作失败'),
+    onError: (err: ApiErrorResponse) => message.error(err?.response?.data?.message || '操作失败'),
   });
 };

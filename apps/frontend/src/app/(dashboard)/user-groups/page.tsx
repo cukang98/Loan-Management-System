@@ -10,12 +10,26 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { useUserGroups, useCreateUserGroup, useUpdateUserGroup, useDeleteUserGroup } from '@/hooks/useUserGroups';
 import { PermissionModule, PermissionAction } from '@ck-loan/shared';
+import type { UserGroupDto } from '@ck-loan/shared';
+
+interface UserGroupFormValues {
+  name: string;
+  isSuperAdmin: boolean;
+  permKeys: string[];
+}
 
 const MODULES = Object.values(PermissionModule);
 const ACTIONS = Object.values(PermissionAction);
 
+const MODULE_LABELS: Record<string, string> = {
+  loans: '贷款', customers: '客户', lenders: '贷款方',
+  repayments: '还款', users: '用户', 'user-groups': '用户组',
+};
+const ACTION_LABELS: Record<string, string> = {
+  create: '创建', read: '查看', update: '编辑', delete: '删除',
+};
+
 function PermissionMatrix({ value, onChange }: { value?: string[]; onChange?: (v: string[]) => void }) {
-  const tg = useTranslations('userGroups');
   const current = value || [];
 
   const toggle = (module: string, action: string) => {
@@ -30,11 +44,16 @@ function PermissionMatrix({ value, onChange }: { value?: string[]; onChange?: (v
       pagination={false}
       dataSource={MODULES.map((m) => ({ module: m, key: m }))}
       columns={[
-        { title: '模块', dataIndex: 'module', key: 'module', render: (m: string) => (tg as any)(`modules.${m}`) },
+        {
+          title: '模块',
+          dataIndex: 'module',
+          key: 'module',
+          render: (m: string) => MODULE_LABELS[m] ?? m,
+        },
         ...ACTIONS.map((action) => ({
-          title: (tg as any)(`actions.${action}`),
+          title: ACTION_LABELS[action] ?? action,
           key: action,
-          render: (_: unknown, row: any) => (
+          render: (_: unknown, row: { module: string }) => (
             <Checkbox
               checked={current.includes(`${row.module}:${action}`)}
               onChange={() => toggle(row.module, action)}
@@ -59,19 +78,20 @@ export default function UserGroupsPage() {
   const deleteMutation = useDeleteUserGroup();
 
   const openCreate = () => { form.resetFields(); setEditId(null); setModalOpen(true); };
-  const openEdit = (record: any) => {
-    const permKeys = record.permissions?.map((p: any) => `${p.module}:${p.action}`) || [];
+  const openEdit = (record: UserGroupDto) => {
+    const permKeys = record.permissions?.map((p) => `${p.module}:${p.action}`) ?? [];
     form.setFieldsValue({ name: record.name, isSuperAdmin: record.isSuperAdmin, permKeys });
     setEditId(record.id);
     setModalOpen(true);
   };
 
-  const handleSubmit = async (values: any) => {
-    const permissions = (values.permKeys || []).map((key: string) => {
+  const handleSubmit = async (raw: unknown) => {
+    const { name, isSuperAdmin, permKeys } = raw as UserGroupFormValues;
+    const permissions = (permKeys || []).map((key: string) => {
       const [module, action] = key.split(':');
       return { module, action };
     });
-    const payload = { name: values.name, isSuperAdmin: values.isSuperAdmin || false, permissions };
+    const payload = { name, isSuperAdmin: isSuperAdmin || false, permissions };
     if (editId) {
       await updateMutation.mutateAsync({ id: editId, data: payload });
     } else {

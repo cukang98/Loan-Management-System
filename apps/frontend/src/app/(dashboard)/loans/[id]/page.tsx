@@ -4,15 +4,17 @@ import { useState } from 'react';
 import { useParams } from 'next/navigation';
 import {
   Card, Row, Col, Tag, Descriptions, Timeline, Button,
-  Form, InputNumber, DatePicker, Input, Modal, Skeleton,
+  Form, InputNumber, DatePicker, Input, Modal, Skeleton, Result,
 } from 'antd';
 import { PlusOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import type { Dayjs } from 'dayjs';
 import { useLoan } from '@/hooks/useLoans';
 import { useCreateRepayment } from '@/hooks/useRepayments';
 import { PermissionGuard } from '@/components/common/PermissionGuard';
 import { LoanStatus } from '@ck-loan/shared';
+import type { RepaymentDto } from '@ck-loan/shared';
 
 const fmtMoney = (v: string | number) =>
   `RM ${Number(v).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
@@ -22,37 +24,61 @@ const STATUS_COLOR: Record<string, string> = {
   ACTIVE: 'blue', COMPLETED: 'green', DEFAULTED: 'red',
 };
 
+interface RepaymentFormValues {
+  paidAmount: number;
+  paidAt: Dayjs;
+  overdueDays?: number;
+  notes?: string;
+}
+
 export default function LoanDetailPage() {
   const { id } = useParams<{ id: string }>();
   const t = useTranslations('loans');
   const tr = useTranslations('repayments');
-  const [form] = Form.useForm();
+  const [form] = Form.useForm<RepaymentFormValues>();
   const [repayModalOpen, setRepayModalOpen] = useState(false);
 
   const { data: loan, isLoading } = useLoan(id);
   const createRepayment = useCreateRepayment();
 
-  const handleRepayment = async (values: any) => {
+  const handleRepayment = async (values: RepaymentFormValues) => {
     await createRepayment.mutateAsync({
       loanId: id,
       paidAmount: values.paidAmount,
       paidAt: values.paidAt.format('YYYY-MM-DD'),
-      overdueDays: values.overdueDays || 0,
+      overdueDays: values.overdueDays ?? 0,
       notes: values.notes,
     });
     setRepayModalOpen(false);
     form.resetFields();
   };
 
+  const handleModalOk = async () => {
+    try {
+      const values = await form.validateFields();
+      await handleRepayment(values);
+    } catch {
+      // Ant Design displays field-level validation errors
+    }
+  };
+
   if (isLoading) return <Skeleton active paragraph={{ rows: 10 }} />;
-  if (!loan) return <div>Loan not found</div>;
+  if (!loan) {
+    return (
+      <Result
+        status="404"
+        title="Loan not found"
+        extra={<Link href="/loans"><Button type="primary">{t('backToLoans')}</Button></Link>}
+      />
+    );
+  }
 
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
         <Link href="/loans">
           <Button icon={<ArrowLeftOutlined />} type="link" style={{ paddingLeft: 0 }}>
-            返回贷款列表
+            {t('backToLoans')}
           </Button>
         </Link>
       </div>
@@ -60,7 +86,7 @@ export default function LoanDetailPage() {
       <Row gutter={[16, 16]}>
         <Col xs={24} lg={14}>
           <Card
-            title={`贷款详情 — ${loan.customer?.fullName}`}
+            title={`${t('detailTitle')} — ${loan.customer?.fullName}`}
             extra={<Tag color={STATUS_COLOR[loan.status]}>{loan.status}</Tag>}
             style={{ borderRadius: 12 }}
           >
@@ -69,7 +95,7 @@ export default function LoanDetailPage() {
               <Descriptions.Item label={t('lender')}>{loan.lender?.name}</Descriptions.Item>
               <Descriptions.Item label={t('principal')}>{fmtMoney(loan.principal)}</Descriptions.Item>
               <Descriptions.Item label={t('interestRate')}>{loan.interestRate}%</Descriptions.Item>
-              <Descriptions.Item label={t('tenureMonths')}>{loan.tenureMonths} 月</Descriptions.Item>
+              <Descriptions.Item label={t('tenureMonths')}>{loan.tenureMonths} {t('months')}</Descriptions.Item>
               <Descriptions.Item label={t('repaymentFrequency')}>{loan.repaymentFrequency}</Descriptions.Item>
               <Descriptions.Item label={t('interestModel')}>{loan.interestModel}</Descriptions.Item>
               <Descriptions.Item label={t('startDate')}>{fmtDate(loan.startDate)}</Descriptions.Item>
@@ -81,30 +107,41 @@ export default function LoanDetailPage() {
 
         <Col xs={24} lg={10}>
           <Card
-            title="还款记录"
+            title={t('repaymentHistory')}
             style={{ borderRadius: 12 }}
             extra={
               <PermissionGuard module="repayments" action="create">
                 {loan.status === LoanStatus.ACTIVE && (
-                  <Button type="primary" size="small" icon={<PlusOutlined />} onClick={() => setRepayModalOpen(true)}>
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<PlusOutlined />}
+                    onClick={() => setRepayModalOpen(true)}
+                  >
                     {t('recordRepayment')}
                   </Button>
                 )}
               </PermissionGuard>
             }
           >
-            {loan.repayments?.length === 0 ? (
-              <div style={{ textAlign: 'center', color: '#999', padding: 24 }}>暂无还款记录</div>
+            {!loan.repayments?.length ? (
+              <div style={{ textAlign: 'center', color: '#999', padding: 24 }}>
+                {t('noRepayments')}
+              </div>
             ) : (
               <Timeline
-                items={loan.repayments?.map((r: any) => ({
+                items={loan.repayments.map((r: RepaymentDto) => ({
                   color: r.overdueDays > 0 ? 'red' : 'green',
                   children: (
                     <div>
                       <div><strong>{fmtDate(r.paidAt)}</strong> — {fmtMoney(r.paidAmount)}</div>
                       <div style={{ fontSize: 12, color: '#666' }}>
-                        余额: {fmtMoney(r.remainingBalance)}
-                        {r.overdueDays > 0 && <Tag color="red" style={{ marginLeft: 8 }}>逾期 {r.overdueDays} 天</Tag>}
+                        {t('balance')}: {fmtMoney(r.remainingBalance)}
+                        {r.overdueDays > 0 && (
+                          <Tag color="red" style={{ marginLeft: 8 }}>
+                            {t('overdueLabel')} {r.overdueDays} {t('days')}
+                          </Tag>
+                        )}
                       </div>
                     </div>
                   ),
@@ -119,7 +156,7 @@ export default function LoanDetailPage() {
         open={repayModalOpen}
         title={t('recordRepayment')}
         onCancel={() => setRepayModalOpen(false)}
-        onOk={async () => { const v = await form.validateFields(); await handleRepayment(v); }}
+        onOk={handleModalOk}
         confirmLoading={createRepayment.isPending}
         destroyOnClose
       >

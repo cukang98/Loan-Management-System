@@ -9,15 +9,6 @@ import zhCN from 'antd/locale/zh_CN';
 import enUS from 'antd/locale/en_US';
 import { AuthProvider } from '@/contexts/AuthContext';
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 30_000,
-      retry: 1,
-    },
-  },
-});
-
 export type Locale = 'zh' | 'en';
 
 const LOCALE_KEY = 'ck_loan_locale';
@@ -30,6 +21,17 @@ export const LocaleContext = React.createContext<{
 export const useLocale = () => React.useContext(LocaleContext);
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
+  const [queryClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            retry: 1,
+          },
+        },
+      }),
+  );
   const [locale, setLocale] = useState<Locale>('zh');
   const [messages, setMessages] = useState<Record<string, unknown>>({});
 

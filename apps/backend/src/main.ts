@@ -15,8 +15,12 @@ async function bootstrap() {
     app.use(morgan('dev'));
   }
 
+  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3000')
+    .split(',')
+    .map((url) => url.trim());
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   });
 

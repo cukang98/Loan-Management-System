@@ -1,9 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
 import api from '@/lib/axios';
+import type { UserGroupDto, PaginatedData } from '@ck-loan/shared';
 
 export const useUserGroups = (query: { page?: number; limit?: number } = {}) =>
-  useQuery({
+  useQuery<PaginatedData<UserGroupDto>>({
     queryKey: ['user-groups', query],
     queryFn: async () => {
       const res = await api.get('/user-groups', { params: query });

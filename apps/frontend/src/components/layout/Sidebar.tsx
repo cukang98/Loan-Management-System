@@ -27,7 +27,7 @@ export function Sidebar() {
     {
       key: 'admin',
       icon: <SettingOutlined />,
-      label: '管理',
+      label: t('admin'),
       children: [
         { key: '/users', icon: <UserOutlined />, label: t('users') },
         { key: '/user-groups', icon: <SettingOutlined />, label: t('userGroups') },

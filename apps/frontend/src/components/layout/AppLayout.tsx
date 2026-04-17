@@ -1,34 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Layout, Drawer, Button } from 'antd';
-import { MenuOutlined } from '@ant-design/icons';
+import { useState } from 'react';
+import { Layout, Grid } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { BottomNav } from './BottomNav';
 import { useAuth } from '@/contexts/AuthContext';
 
 const { Sider, Content } = Layout;
+const { useBreakpoint } = Grid;
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const screens = useBreakpoint();
+  const isMobile = !screens.lg;
 
-  useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-  }, []);
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
+  if (!isLoading && !user) {
+    router.push('/login');
+  }
 
   if (isLoading || !user) {
     return (
@@ -63,33 +55,13 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         </Sider>
       )}
 
-      {isMobile && (
-        <Drawer
-          placement="left"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          width={240}
-          styles={{ body: { padding: 0 } }}
-        >
-          <Sidebar />
-        </Drawer>
-      )}
-
       <Layout>
-        <div style={{ position: 'relative' }}>
-          {isMobile && (
-            <Button
-              icon={<MenuOutlined />}
-              onClick={() => setMobileOpen(true)}
-              style={{ position: 'absolute', left: 16, top: 12, zIndex: 10 }}
-            />
-          )}
-          <Header />
-        </div>
+        <Header />
         <Content
           style={{
-            margin: 24,
-            padding: 24,
+            margin: isMobile ? 12 : 24,
+            padding: isMobile ? 16 : 24,
+            paddingBottom: isMobile ? 72 : 24,
             background: '#fff',
             borderRadius: 12,
             minHeight: 360,
@@ -97,6 +69,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         >
           {children}
         </Content>
+        {isMobile && <BottomNav />}
       </Layout>
     </Layout>
   );

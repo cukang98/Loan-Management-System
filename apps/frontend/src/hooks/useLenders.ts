@@ -1,11 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
 import api from '@/lib/axios';
+import type { LenderDto, PaginatedData } from '@ck-loan/shared';
 
 interface LenderQuery { page?: number; limit?: number; search?: string; }
 
 export const useLenders = (query: LenderQuery = {}) =>
-  useQuery({
+  useQuery<PaginatedData<LenderDto>>({
     queryKey: ['lenders', query],
     queryFn: async () => {
       const res = await api.get('/lenders', { params: query });
