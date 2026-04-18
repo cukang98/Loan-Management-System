@@ -1,4 +1,7 @@
-import { LoanStatus, RepaymentFrequency, InterestModel, PermissionModule, PermissionAction } from '../enums';
+import {
+  LoanStatus, InterestModel, TenureType, RepaymentType,
+  ScheduleStatus, PaymentMethod, PermissionModule, PermissionAction,
+} from '../enums';
 
 // Generic API response wrappers
 export interface ApiResponse<T> {
@@ -9,9 +12,11 @@ export interface ApiResponse<T> {
 
 export interface PaginatedData<T> {
   items: T[];
-  total: number;
-  page: number;
-  limit: number;
+  pagination: {
+    pageIndex: number;
+    pageSize: number;
+    totalItem: number;
+  };
 }
 
 export interface PaginatedResponse<T> extends ApiResponse<PaginatedData<T>> {}
@@ -33,7 +38,8 @@ export interface UserGroupDto {
 // User
 export interface UserDto {
   id: string;
-  email: string;
+  userId: string;
+  email: string | null;
   name: string;
   isActive: boolean;
   userGroupId: string | null;
@@ -42,18 +48,26 @@ export interface UserDto {
   updatedAt: string;
 }
 
+export type ActorType = 'USER' | 'LENDER';
+
 export interface AuthUserDto {
   id: string;
-  email: string;
+  userId: string;
+  email?: string | null;
   name: string;
   isActive: boolean;
+  actorType: ActorType;
   userGroup: UserGroupDto | null;
 }
 
-// Lender
+// Lender (User with actorType === 'LENDER')
 export interface LenderDto {
   id: string;
+  userId: string;
+  email: string | null;
   name: string;
+  isActive: boolean;
+  actorType: string;
   availableCapital: string;
   totalLent: string;
   createdAt: string;
@@ -78,29 +92,52 @@ export interface LoanDto {
   customerId: string;
   customer: Pick<CustomerDto, 'id' | 'fullName' | 'phone'>;
   lenderId: string;
-  lender: Pick<LenderDto, 'id' | 'name'>;
+  lender: { id: string; name: string };
   principal: string;
   interestRate: string;
-  tenureMonths: number;
-  repaymentFrequency: RepaymentFrequency;
+  interestAmount: string;
+  tenure: number;
+  tenureType: TenureType;
+  repaymentType: RepaymentType;
   interestModel: InterestModel;
-  totalRepayment: string;
-  installmentAmount: string;
   status: LoanStatus;
   startDate: string;
   createdAt: string;
   updatedAt: string;
 }
 
-// Repayment
+// Repayment schedule row
+export interface RepaymentScheduleDto {
+  id: string;
+  loanId: string;
+  installmentNo: number;
+  dueDate: string;
+  principalDue: string;
+  interestDue: string;
+  totalDue: string;
+  paidAmount: string;
+  status: ScheduleStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Payment event
 export interface RepaymentDto {
   id: string;
   loanId: string;
-  paidAmount: string;
-  paidAt: string;
-  remainingBalance: string;
-  overdueDays: number;
+  amount: string;
+  paymentDate: string;
+  method: PaymentMethod;
   notes: string | null;
+  createdAt: string;
+}
+
+// Allocation between a payment and a schedule row
+export interface RepaymentAllocationDto {
+  id: string;
+  repaymentId: string;
+  scheduleId: string;
+  amountApplied: string;
   createdAt: string;
 }
 

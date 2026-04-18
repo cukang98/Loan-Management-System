@@ -1,0 +1,10 @@
+.card {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.cardMeta {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-top: 2px;
+}

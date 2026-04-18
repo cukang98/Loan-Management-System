@@ -36,13 +36,13 @@ export class UserGroupsService {
         where,
         select: GROUP_SELECT,
         skip: query.skip,
-        take: query.limit,
+        take: query.pageSize,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.userGroup.count({ where }),
     ]);
 
-    return { items, total, page: query.page, limit: query.limit };
+    return { items, pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize, totalItem: total } };
   }
 
   async findOne(id: string) {

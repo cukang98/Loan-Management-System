@@ -26,14 +26,14 @@ export class CustomersService {
       this.prisma.customer.findMany({
         where,
         skip: query.skip,
-        take: query.limit,
+        take: query.pageSize,
         orderBy: { createdAt: 'desc' },
         include: { _count: { select: { loans: true } } },
       }),
       this.prisma.customer.count({ where }),
     ]);
 
-    return { items, total, page: query.page, limit: query.limit };
+    return { items, pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize, totalItem: total } };
   }
 
   async findOne(id: string) {
@@ -43,7 +43,7 @@ export class CustomersService {
         loans: {
           select: {
             id: true, principal: true, status: true,
-            startDate: true, interestRate: true, tenureMonths: true,
+            startDate: true, interestRate: true, tenure: true, tenureType: true,
           },
           orderBy: { createdAt: 'desc' },
         },

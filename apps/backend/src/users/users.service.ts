@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -12,6 +13,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 const USER_SELECT = {
   id: true,
+  userId: true,
   email: true,
   name: true,
   isActive: true,
@@ -51,13 +53,13 @@ export class UsersService {
         where,
         select: USER_SELECT,
         skip: query.skip,
-        take: query.limit,
+        take: query.pageSize,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.user.count({ where }),
     ]);
 
-    return { items, total, page: query.page, limit: query.limit };
+    return { items, pagination: { pageIndex: query.pageIndex, pageSize: query.pageSize, totalItem: total } };
   }
 
   async findOne(id: string) {
@@ -71,17 +73,20 @@ export class UsersService {
   }
 
   async create(dto: CreateUserDto) {
-    this.logger.log(`Creating user: ${dto.email}`);
+    this.logger.log(`Creating user: ${dto.userId}`);
 
-    const exists = await this.prisma.user.findUnique({
-      where: { email: dto.email },
-    });
-    if (exists) throw new ConflictException('Email already in use');
+    const userIdExists = await this.prisma.user.findUnique({ where: { userId: dto.userId } });
+    if (userIdExists) throw new ConflictException('User ID already in use');
+
+    if (dto.email) {
+      const emailExists = await this.prisma.user.findUnique({ where: { email: dto.email } });
+      if (emailExists) throw new ConflictException('Email already in use');
+    }
 
     const password = await bcrypt.hash(dto.password, 12);
 
     return this.prisma.user.create({
-      data: { ...dto, password },
+      data: { ...dto, password } as Prisma.UserUncheckedCreateInput,
       select: USER_SELECT,
     });
   }

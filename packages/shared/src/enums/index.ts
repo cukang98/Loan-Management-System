@@ -4,15 +4,36 @@ export enum LoanStatus {
   DEFAULTED = 'DEFAULTED',
 }
 
-export enum RepaymentFrequency {
-  WEEKLY = 'WEEKLY',
-  BIWEEKLY = 'BIWEEKLY',
+export enum TenureType {
+  DAY = 'DAY',
+  WEEK = 'WEEK',
+  MONTH = 'MONTH',
+}
+
+export enum RepaymentType {
+  INSTALLMENT = 'INSTALLMENT',
+  DAILY = 'DAILY',
   MONTHLY = 'MONTHLY',
+  ROLLING = 'ROLLING',
 }
 
 export enum InterestModel {
   FLAT = 'FLAT',
   REDUCING = 'REDUCING',
+}
+
+export enum ScheduleStatus {
+  PENDING = 'PENDING',
+  PARTIAL = 'PARTIAL',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+}
+
+export enum PaymentMethod {
+  CASH = 'CASH',
+  BANK_TRANSFER = 'BANK_TRANSFER',
+  MOBILE_MONEY = 'MOBILE_MONEY',
+  OTHER = 'OTHER',
 }
 
 export enum PermissionModule {

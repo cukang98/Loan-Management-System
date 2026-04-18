@@ -10,34 +10,31 @@ export class DashboardService {
   async getKpis() {
     this.logger.log('Fetching dashboard KPIs');
 
-    const [totalLoans, activeLoans, completedLoans, defaultedLoans, overdueCount, outstanding] =
+    const [totalLoans, activeLoans, completedLoans, defaultedLoans, overdueCount, activeLoanTotals] =
       await Promise.all([
         this.prisma.loan.count(),
         this.prisma.loan.count({ where: { status: 'ACTIVE' } }),
         this.prisma.loan.count({ where: { status: 'COMPLETED' } }),
         this.prisma.loan.count({ where: { status: 'DEFAULTED' } }),
-        this.prisma.repayment.count({ where: { overdueDays: { gt: 0 } } }),
-        this.prisma.loan.aggregate({
-          where: { status: 'ACTIVE' },
-          _sum: { totalRepayment: true },
+        // Overdue = schedules with OVERDUE status
+        this.prisma.repaymentSchedule.count({ where: { status: 'OVERDUE' } }),
+        // Outstanding = sum of (totalDue - paidAmount) for non-PAID schedules on ACTIVE loans
+        this.prisma.repaymentSchedule.aggregate({
+          where: { loan: { status: 'ACTIVE' }, status: { not: 'PAID' } },
+          _sum: { totalDue: true, paidAmount: true },
         }),
       ]);
 
-    const totalPaidOnActive = await this.prisma.repayment.aggregate({
-      where: { loan: { status: 'ACTIVE' } },
-      _sum: { paidAmount: true },
-    });
-
-    const totalOutstanding =
-      Number(outstanding._sum.totalRepayment ?? 0) -
-      Number(totalPaidOnActive._sum.paidAmount ?? 0);
+    const totalDue = Number(activeLoanTotals._sum.totalDue ?? 0);
+    const paidSoFar = Number(activeLoanTotals._sum.paidAmount ?? 0);
+    const totalOutstanding = Math.max(0, totalDue - paidSoFar);
 
     return {
       totalLoans,
       activeLoans,
       completedLoans,
       defaultedLoans,
-      totalOutstanding: Math.max(0, totalOutstanding).toFixed(2),
+      totalOutstanding: totalOutstanding.toFixed(2),
       overdueCount,
     };
   }
@@ -46,13 +43,19 @@ export class DashboardService {
     this.logger.log('Fetching dashboard chart data');
 
     const loans = await this.prisma.loan.findMany({
-      select: { principal: true, status: true, startDate: true, createdAt: true },
+      select: { principal: true, status: true, startDate: true },
     });
 
     const repayments = await this.prisma.repayment.findMany({
-      select: { paidAmount: true, paidAt: true, overdueDays: true },
+      select: { amount: true, paymentDate: true },
     });
 
+    const overdueSchedules = await this.prisma.repaymentSchedule.findMany({
+      where: { status: 'OVERDUE' },
+      select: { dueDate: true },
+    });
+
+    // Build last-12-months map
     const monthlyMap = new Map<string, { disbursed: number; repaid: number }>();
     const now = new Date();
 
@@ -70,9 +73,9 @@ export class DashboardService {
     });
 
     repayments.forEach((r) => {
-      const key = `${r.paidAt.getFullYear()}-${String(r.paidAt.getMonth() + 1).padStart(2, '0')}`;
+      const key = `${r.paymentDate.getFullYear()}-${String(r.paymentDate.getMonth() + 1).padStart(2, '0')}`;
       if (monthlyMap.has(key)) {
-        monthlyMap.get(key)!.repaid += Number(r.paidAmount);
+        monthlyMap.get(key)!.repaid += Number(r.amount);
       }
     });
 
@@ -92,12 +95,13 @@ export class DashboardService {
       count: s._count.status,
     }));
 
+    // Overdue trend: count OVERDUE schedules by dueDate month
     const overdueTrend = Array.from(monthlyMap.keys()).map((month) => {
       const [year, mo] = month.split('-').map(Number);
       const start = new Date(year, mo - 1, 1);
       const end = new Date(year, mo, 1);
-      const count = repayments.filter(
-        (r) => r.overdueDays > 0 && r.paidAt >= start && r.paidAt < end,
+      const count = overdueSchedules.filter(
+        (s) => s.dueDate >= start && s.dueDate < end,
       ).length;
       return { month, overdue: count };
     });

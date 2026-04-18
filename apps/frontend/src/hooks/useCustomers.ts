@@ -1,30 +1,34 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { App } from 'antd';
-import api from '@/lib/axios';
-import type { CustomerDto, PaginatedData } from '@ck-loan/shared';
 
-interface CustomerQuery {
-  page?: number;
-  limit?: number;
-  search?: string;
-}
+import { App } from 'antd';
+
+import type { AxiosError } from 'axios';
+
+import {
+  customersKeys,
+  getCustomers,
+  getCustomerById,
+  createCustomer,
+  updateCustomerById,
+  deleteCustomerById,
+} from '@/services/customers.api';
+
+import type { CustomerQuery, CreateCustomerPayload, UpdateCustomerPayload } from '@/services/customers.api';
+
+type ApiError = AxiosError<{ message?: string }>;
+
+export { CustomerQuery };
 
 export const useCustomers = (query: CustomerQuery = {}) =>
-  useQuery<PaginatedData<CustomerDto>>({
-    queryKey: ['customers', 'list', query],
-    queryFn: async () => {
-      const res = await api.get('/customers', { params: query });
-      return res.data.data;
-    },
+  useQuery({
+    queryKey: customersKeys.list(query),
+    queryFn: () => getCustomers(query),
   });
 
 export const useCustomer = (id: string) =>
   useQuery({
-    queryKey: ['customers', id],
-    queryFn: async () => {
-      const res = await api.get(`/customers/${id}`);
-      return res.data.data;
-    },
+    queryKey: customersKeys.detail(id),
+    queryFn: () => getCustomerById(id),
     enabled: !!id,
   });
 
@@ -32,12 +36,13 @@ export const useCreateCustomer = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();
   return useMutation({
-    mutationFn: (data: unknown) => api.post('/customers', data),
+    mutationFn: (data: CreateCustomerPayload) => createCustomer(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] });
+      qc.invalidateQueries({ queryKey: customersKeys.lists() });
       message.success('客户创建成功 / Customer created');
     },
-    onError: () => message.error('操作失败 / Operation failed'),
+    onError: (err: ApiError) =>
+      message.error(err?.response?.data?.message || '操作失败 / Operation failed'),
   });
 };
 
@@ -45,13 +50,15 @@ export const useUpdateCustomer = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
-      api.patch(`/customers/${id}`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] });
+    mutationFn: ({ id, data }: { id: string; data: UpdateCustomerPayload }) =>
+      updateCustomerById(id, data),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: customersKeys.lists() });
+      qc.invalidateQueries({ queryKey: customersKeys.detail(id) });
       message.success('客户更新成功 / Customer updated');
     },
-    onError: () => message.error('操作失败 / Operation failed'),
+    onError: (err: ApiError) =>
+      message.error(err?.response?.data?.message || '操作失败 / Operation failed'),
   });
 };
 
@@ -59,11 +66,12 @@ export const useDeleteCustomer = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/customers/${id}`),
+    mutationFn: (id: string) => deleteCustomerById(id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['customers'] });
+      qc.invalidateQueries({ queryKey: customersKeys.lists() });
       message.success('客户已删除 / Customer deleted');
     },
-    onError: () => message.error('操作失败 / Operation failed'),
+    onError: (err: ApiError) =>
+      message.error(err?.response?.data?.message || '操作失败 / Operation failed'),
   });
 };

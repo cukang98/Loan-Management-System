@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsPositive, IsOptional } from 'class-validator';
+import { IsString, IsNumber, IsPositive, IsOptional, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class UpdateLenderDto {
@@ -11,4 +11,8 @@ export class UpdateLenderDto {
   @IsNumber()
   @IsPositive()
   availableCapital?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

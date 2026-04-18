@@ -1,25 +1,33 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Form, Input, Tag, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+
+// next-intl
 import { useTranslations } from 'next-intl';
-import { DataTable } from '@/components/common/DataTable';
-import { FormModal } from '@/components/common/FormModal';
-import { PageHeader } from '@/components/common/PageHeader';
-import { PermissionGuard } from '@/components/common/PermissionGuard';
+
+// antd
+import { Button, Form } from 'antd';
+
+// antd icons
+import { PlusOutlined } from '@ant-design/icons';
+
+
+// components
+import { PageHeader, PermissionGuard } from '@/components/common';
 import { useCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
 
-export default function CustomersPage() {
+import { CustomerTable } from './components/CustomerTable';
+import { CustomerFormModal } from './components/CustomerFormModal';
+
+const CustomersPage: React.FC = () => {
   const t = useTranslations('customers');
-  const tc = useTranslations('common');
   const [form] = Form.useForm();
-  const [page, setPage] = useState(1);
+  const [pageIndex, setPageIndex] = useState(1);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const { data, isLoading } = useCustomers({ page, limit: 20, search });
+  const { data, isLoading } = useCustomers({ pageIndex, search });
   const createMutation = useCreateCustomer();
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
@@ -41,38 +49,8 @@ export default function CustomersPage() {
     form.resetFields();
   };
 
-  const columns = [
-    { title: t('fullName'), dataIndex: 'fullName', key: 'fullName' },
-    { title: t('phone'), dataIndex: 'phone', key: 'phone' },
-    { title: t('email'), dataIndex: 'email', key: 'email', render: (v: string) => v || '—' },
-    { title: t('address'), dataIndex: 'address', key: 'address', ellipsis: true, render: (v: string) => v || '—' },
-    {
-      title: t('loanCount'),
-      dataIndex: ['_count', 'loans'],
-      key: 'loanCount',
-      render: (v: number) => <Tag color="blue">{v}</Tag>,
-    },
-    {
-      title: tc('actions'),
-      key: 'actions',
-      width: 120,
-      render: (_: unknown, record: any) => (
-        <>
-          <PermissionGuard module="customers" action="update">
-            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
-          </PermissionGuard>
-          <PermissionGuard module="customers" action="delete">
-            <Popconfirm title={t('deleteConfirm')} onConfirm={() => deleteMutation.mutate(record.id)}>
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
-          </PermissionGuard>
-        </>
-      ),
-    },
-  ];
-
   return (
-    <div>
+    <>
       <PageHeader
         title={t('title')}
         actions={
@@ -83,22 +61,28 @@ export default function CustomersPage() {
           </PermissionGuard>
         }
       />
-      <DataTable
-        columns={columns} dataSource={data?.items || []} rowKey="id"
-        loading={isLoading} onSearch={setSearch} total={data?.total}
-        page={page} pageSize={20} onPageChange={(p) => setPage(p)}
+
+      <CustomerTable
+        data={data?.items || []}
+        isLoading={isLoading}
+        pageIndex={pageIndex}
+        total={data?.pagination?.totalItem}
+        onSearch={setSearch}
+        onPageChange={setPageIndex}
+        onEdit={openEdit}
+        onDelete={(id) => deleteMutation.mutate(id)}
       />
-      <FormModal
-        open={modalOpen} title={editId ? t('editCustomer') : t('addCustomer')}
-        form={form} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}
+
+      <CustomerFormModal
+        open={modalOpen}
+        editId={editId}
+        form={form}
         loading={createMutation.isPending || updateMutation.isPending}
-      >
-        <Form.Item name="fullName" label={t('fullName')} rules={[{ required: true }]}><Input /></Form.Item>
-        <Form.Item name="phone" label={t('phone')} rules={[{ required: true }]}><Input /></Form.Item>
-        <Form.Item name="email" label={t('email')} rules={[{ type: 'email' }]}><Input /></Form.Item>
-        <Form.Item name="address" label={t('address')}><Input /></Form.Item>
-        <Form.Item name="notes" label={t('notes')}><Input.TextArea rows={3} /></Form.Item>
-      </FormModal>
-    </div>
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleSubmit}
+      />
+    </>
   );
-}
+};
+
+export default CustomersPage;

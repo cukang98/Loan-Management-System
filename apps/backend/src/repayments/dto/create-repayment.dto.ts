@@ -1,5 +1,6 @@
-import { IsString, IsNumber, IsPositive, IsDateString, IsOptional, IsInt, Min } from 'class-validator';
+import { IsString, IsNumber, IsPositive, IsDateString, IsOptional, IsEnum } from 'class-validator';
 import { Type } from 'class-transformer';
+import { PaymentMethod } from '@ck-loan/shared';
 
 export class CreateRepaymentDto {
   @IsString()
@@ -8,16 +9,15 @@ export class CreateRepaymentDto {
   @Type(() => Number)
   @IsNumber()
   @IsPositive()
-  paidAmount: number;
+  amount: number;
 
   @IsDateString()
-  paidAt: string;
+  paymentDate: string;
 
+  /** Defaults to CASH when omitted. */
   @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(0)
-  overdueDays?: number;
+  @IsEnum(PaymentMethod)
+  method?: PaymentMethod;
 
   @IsOptional()
   @IsString()

@@ -1,88 +1,82 @@
 import { Injectable } from '@nestjs/common';
-import { RepaymentFrequency, InterestModel } from '@ck-loan/shared';
+import { InterestModel, TenureType } from '@ck-loan/shared';
 
-export interface CalculationInput {
+export interface InterestInput {
   principal: number;
-  annualInterestRate: number;
-  tenureMonths: number;
-  repaymentFrequency: RepaymentFrequency;
+  tenure: number;
+  tenureType: TenureType;
   interestModel: InterestModel;
+  /** Flat rate as % of principal (FLAT), or per-period % (REDUCING). Mutually exclusive with interestAmount. */
+  interestRate?: number;
+  /** Fixed total interest in currency units. Mutually exclusive with interestRate. */
+  interestAmount?: number;
 }
 
-export interface CalculationResult {
-  totalRepayment: number;
-  installmentAmount: number;
-  numberOfInstallments: number;
+export interface InterestResult {
+  /** Percentage. For FLAT: interestAmount / principal × 100. For REDUCING: per-period rate provided by caller. */
+  interestRate: number;
+  /** Total absolute interest over the life of the loan. */
+  interestAmount: number;
 }
 
 @Injectable()
 export class LoanCalculatorService {
-  calculate(input: CalculationInput): CalculationResult {
-    switch (input.interestModel) {
-      case InterestModel.FLAT:
-        return this.calculateFlat(input);
-      case InterestModel.REDUCING:
-        return this.calculateReducing(input);
-      default:
-        throw new Error(`Unknown interest model: ${input.interestModel}`);
+  /**
+   * Derives the missing interest field so both interestRate and interestAmount
+   * are always stored together.
+   *
+   * FLAT model:
+   *   interestAmount = principal × (interestRate / 100)
+   *
+   * REDUCING model (equal-principal method):
+   *   Each period: interest = outstandingBalance × (interestRate / 100)
+   *   Total interest = Σ all period interest amounts
+   *   interestRate is the per-period rate (not annual).
+   */
+  calculateInterest(input: InterestInput): InterestResult {
+    const { principal, tenure, interestModel, interestRate, interestAmount } = input;
+
+    if (interestAmount !== undefined && interestRate !== undefined) {
+      throw new Error('Provide either interestRate or interestAmount, not both');
     }
-  }
 
-  getNumberOfInstallments(
-    tenureMonths: number,
-    frequency: RepaymentFrequency,
-  ): number {
-    switch (frequency) {
-      case RepaymentFrequency.WEEKLY:
-        return tenureMonths * 4;
-      case RepaymentFrequency.BIWEEKLY:
-        return tenureMonths * 2;
-      case RepaymentFrequency.MONTHLY:
-        return tenureMonths;
+    if (interestAmount !== undefined) {
+      // User gave total interest → back-calculate the flat rate
+      const rate = this.round4((interestAmount / principal) * 100);
+      return { interestRate: rate, interestAmount: this.round2(interestAmount) };
     }
+
+    if (interestRate !== undefined) {
+      if (interestModel === InterestModel.REDUCING) {
+        // Sum interest across the reducing-balance schedule
+        const periodicRate = interestRate / 100;
+        const principalPerPeriod = principal / tenure;
+        let outstanding = principal;
+        let totalInterest = 0;
+
+        for (let i = 0; i < tenure; i++) {
+          totalInterest += outstanding * periodicRate;
+          outstanding -= principalPerPeriod;
+        }
+
+        return { interestRate, interestAmount: this.round2(totalInterest) };
+      }
+
+      // FLAT: one-shot calculation
+      return {
+        interestRate,
+        interestAmount: this.round2(principal * (interestRate / 100)),
+      };
+    }
+
+    throw new Error('Either interestRate or interestAmount must be provided');
   }
 
-  private calculateFlat(input: CalculationInput): CalculationResult {
-    const { principal, annualInterestRate, tenureMonths, repaymentFrequency } = input;
-
-    const totalInterest = principal * (annualInterestRate / 100) * (tenureMonths / 12);
-    const totalRepayment = principal + totalInterest;
-    const numberOfInstallments = this.getNumberOfInstallments(tenureMonths, repaymentFrequency);
-    const installmentAmount = totalRepayment / numberOfInstallments;
-
-    return {
-      totalRepayment: this.round(totalRepayment),
-      installmentAmount: this.round(installmentAmount),
-      numberOfInstallments,
-    };
-  }
-
-  private calculateReducing(input: CalculationInput): CalculationResult {
-    const { principal, annualInterestRate, tenureMonths, repaymentFrequency } = input;
-
-    const monthlyRate = annualInterestRate / 100 / 12;
-    const monthlyInstallment =
-      (principal * monthlyRate) / (1 - Math.pow(1 + monthlyRate, -tenureMonths));
-
-    const freqDivisor =
-      repaymentFrequency === RepaymentFrequency.WEEKLY
-        ? 4
-        : repaymentFrequency === RepaymentFrequency.BIWEEKLY
-          ? 2
-          : 1;
-
-    const installmentAmount = monthlyInstallment / freqDivisor;
-    const numberOfInstallments = this.getNumberOfInstallments(tenureMonths, repaymentFrequency);
-    const totalRepayment = installmentAmount * numberOfInstallments;
-
-    return {
-      totalRepayment: this.round(totalRepayment),
-      installmentAmount: this.round(installmentAmount),
-      numberOfInstallments,
-    };
-  }
-
-  private round(value: number): number {
+  round2(value: number): number {
     return Math.round(value * 100) / 100;
+  }
+
+  round4(value: number): number {
+    return Math.round(value * 10000) / 10000;
   }
 }

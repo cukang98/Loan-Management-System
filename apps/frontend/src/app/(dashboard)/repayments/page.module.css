@@ -1,0 +1,15 @@
+.card {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.overdueCard {
+  border-color: #ff4d4f;
+  background: #fff2f0;
+}
+
+.cardMeta {
+  font-size: 13px;
+  color: #8c8c8c;
+  margin-top: 2px;
+}

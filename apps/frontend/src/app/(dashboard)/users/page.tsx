@@ -1,27 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Form, Input, Select, Switch, Tag, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useTranslations } from 'next-intl';
-import { DataTable } from '@/components/common/DataTable';
-import { FormModal } from '@/components/common/FormModal';
-import { PageHeader } from '@/components/common/PageHeader';
-import { PermissionGuard } from '@/components/common/PermissionGuard';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers';
-import { useUserGroups } from '@/hooks/useUserGroups';
+import { Button, Form } from 'antd';
+import { PlusOutlined } from '@ant-design/icons';
 
-export default function UsersPage() {
+import { PageHeader, PermissionGuard } from '@/components/common';
+import { useUserGroups } from '@/hooks/useUserGroups';
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers';
+
+import { UserTable } from './components/UserTable';
+import { UserFormModal } from './components/UserFormModal';
+
+const UsersPage: React.FC = () => {
   const t = useTranslations('users');
-  const tc = useTranslations('common');
   const [form] = Form.useForm();
-  const [page, setPage] = useState(1);
+  const [pageIndex, setPageIndex] = useState(1);
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
-  const { data, isLoading } = useUsers({ page, limit: 20, search });
-  const { data: groups } = useUserGroups({ limit: 100 });
+  const { data, isLoading } = useUsers({ pageIndex, search });
+  const { data: groups } = useUserGroups({ pageSize: 100 });
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
@@ -43,33 +43,8 @@ export default function UsersPage() {
     setModalOpen(false);
   };
 
-  const columns = [
-    { title: t('name'), dataIndex: 'name', key: 'name' },
-    { title: t('email'), dataIndex: 'email', key: 'email' },
-    { title: t('userGroup'), key: 'userGroup', render: (_: unknown, r: any) => r.userGroup?.name || '—' },
-    {
-      title: t('isActive'), dataIndex: 'isActive', key: 'isActive',
-      render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? tc('yes') : tc('no')}</Tag>,
-    },
-    {
-      title: tc('actions'), key: 'actions', width: 120,
-      render: (_: unknown, record: any) => (
-        <>
-          <PermissionGuard module="users" action="update">
-            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
-          </PermissionGuard>
-          <PermissionGuard module="users" action="delete">
-            <Popconfirm title={t('deleteConfirm')} onConfirm={() => deleteMutation.mutate(record.id)}>
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
-            </Popconfirm>
-          </PermissionGuard>
-        </>
-      ),
-    },
-  ];
-
   return (
-    <div>
+    <>
       <PageHeader
         title={t('title')}
         actions={
@@ -78,30 +53,27 @@ export default function UsersPage() {
           </PermissionGuard>
         }
       />
-      <DataTable
-        columns={columns} dataSource={data?.items || []} rowKey="id"
-        loading={isLoading} onSearch={setSearch} total={data?.total}
-        page={page} pageSize={20} onPageChange={(p) => setPage(p)}
+      <UserTable
+        data={data?.items || []}
+        isLoading={isLoading}
+        pageIndex={pageIndex}
+        total={data?.pagination?.totalItem}
+        onSearch={setSearch}
+        onPageChange={setPageIndex}
+        onEdit={openEdit}
+        onDelete={(id) => deleteMutation.mutate(id)}
       />
-      <FormModal
-        open={modalOpen} title={editId ? t('editUser') : t('addUser')}
-        form={form} onClose={() => setModalOpen(false)} onSubmit={handleSubmit}
+      <UserFormModal
+        open={modalOpen}
+        editId={editId}
+        form={form}
         loading={createMutation.isPending || updateMutation.isPending}
-      >
-        <Form.Item name="name" label={t('name')} rules={[{ required: true }]}><Input /></Form.Item>
-        <Form.Item name="email" label={t('email')} rules={[{ required: true, type: 'email' }]}><Input /></Form.Item>
-        {!editId && (
-          <Form.Item name="password" label={t('password')} rules={[{ required: true, min: 8 }]}>
-            <Input.Password />
-          </Form.Item>
-        )}
-        <Form.Item name="userGroupId" label={t('userGroup')}>
-          <Select allowClear options={groups?.items?.map((g: any) => ({ label: g.name, value: g.id }))} />
-        </Form.Item>
-        <Form.Item name="isActive" label={t('isActive')} valuePropName="checked" initialValue={true}>
-          <Switch />
-        </Form.Item>
-      </FormModal>
-    </div>
+        groups={groups?.items || []}
+        onClose={() => setModalOpen(false)}
+        onSubmit={handleSubmit}
+      />
+    </>
   );
-}
+};
+
+export default UsersPage;

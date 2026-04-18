@@ -1,5 +1,5 @@
-import { LoanCalculatorService, CalculationInput } from './loan-calculator.service';
-import { RepaymentFrequency, InterestModel } from '@ck-loan/shared';
+import { LoanCalculatorService } from './loan-calculator.service';
+import { InterestModel, TenureType } from '@ck-loan/shared';
 
 describe('LoanCalculatorService', () => {
   let service: LoanCalculatorService;
@@ -8,91 +8,97 @@ describe('LoanCalculatorService', () => {
     service = new LoanCalculatorService();
   });
 
-  describe('Flat Rate calculations', () => {
-    const input: CalculationInput = {
-      principal: 10000,
-      annualInterestRate: 8,
-      tenureMonths: 12,
-      repaymentFrequency: RepaymentFrequency.MONTHLY,
-      interestModel: InterestModel.FLAT,
-    };
-
-    it('should calculate totalRepayment correctly', () => {
-      const result = service.calculate(input);
-      expect(result.totalRepayment).toBeCloseTo(10800, 2);
-    });
-
-    it('should calculate installmentAmount correctly for MONTHLY', () => {
-      const result = service.calculate(input);
-      expect(result.installmentAmount).toBeCloseTo(900, 2);
-    });
-
-    it('should calculate installmentAmount correctly for WEEKLY', () => {
-      const result = service.calculate({
-        ...input,
-        repaymentFrequency: RepaymentFrequency.WEEKLY,
+  describe('calculateInterest — FLAT model', () => {
+    it('derives interestAmount from interestRate', () => {
+      const result = service.calculateInterest({
+        principal: 10000,
+        tenure: 12,
+        tenureType: TenureType.MONTH,
+        interestModel: InterestModel.FLAT,
+        interestRate: 10,
       });
-      expect(result.installmentAmount).toBeCloseTo(10800 / 48, 2);
+      expect(result.interestRate).toBe(10);
+      expect(result.interestAmount).toBe(1000);
     });
 
-    it('should calculate installmentAmount correctly for BIWEEKLY', () => {
-      const result = service.calculate({
-        ...input,
-        repaymentFrequency: RepaymentFrequency.BIWEEKLY,
+    it('derives interestRate from interestAmount', () => {
+      const result = service.calculateInterest({
+        principal: 10000,
+        tenure: 12,
+        tenureType: TenureType.MONTH,
+        interestModel: InterestModel.FLAT,
+        interestAmount: 800,
       });
-      expect(result.installmentAmount).toBeCloseTo(10800 / 24, 2);
+      expect(result.interestAmount).toBe(800);
+      expect(result.interestRate).toBe(8);
+    });
+
+    it('rounds interestRate to 4 decimal places', () => {
+      const result = service.calculateInterest({
+        principal: 10000,
+        tenure: 6,
+        tenureType: TenureType.MONTH,
+        interestModel: InterestModel.FLAT,
+        interestAmount: 333,
+      });
+      expect(result.interestRate).toBe(3.33);
     });
   });
 
-  describe('Reducing Balance calculations', () => {
-    const input: CalculationInput = {
-      principal: 10000,
-      annualInterestRate: 12,
-      tenureMonths: 12,
-      repaymentFrequency: RepaymentFrequency.MONTHLY,
-      interestModel: InterestModel.REDUCING,
-    };
-
-    it('should calculate installmentAmount within expected range', () => {
-      const result = service.calculate(input);
-      expect(result.installmentAmount).toBeCloseTo(888.49, 0);
-    });
-
-    it('should calculate totalRepayment as installment * numInstallments', () => {
-      const result = service.calculate(input);
-      expect(result.totalRepayment).toBeCloseTo(result.installmentAmount * 12, 0);
-    });
-
-    it('should divide monthly installment by 4 for WEEKLY frequency', () => {
-      const monthly = service.calculate(input);
-      const weekly = service.calculate({
-        ...input,
-        repaymentFrequency: RepaymentFrequency.WEEKLY,
+  describe('calculateInterest — REDUCING model', () => {
+    it('derives total interestAmount by summing reducing-balance interest', () => {
+      // 3-period loan, 10% per period rate, equal principal = 1000/period
+      // Period 1: interest = 3000 × 0.10 = 300
+      // Period 2: interest = 2000 × 0.10 = 200
+      // Period 3: interest = 1000 × 0.10 = 100
+      // Total interest = 600
+      const result = service.calculateInterest({
+        principal: 3000,
+        tenure: 3,
+        tenureType: TenureType.MONTH,
+        interestModel: InterestModel.REDUCING,
+        interestRate: 10,
       });
-      expect(weekly.installmentAmount).toBeCloseTo(monthly.installmentAmount / 4, 1);
+      expect(result.interestAmount).toBeCloseTo(600, 2);
+      expect(result.interestRate).toBe(10);
     });
 
-    it('should divide monthly installment by 2 for BIWEEKLY frequency', () => {
-      const monthly = service.calculate(input);
-      const biweekly = service.calculate({
-        ...input,
-        repaymentFrequency: RepaymentFrequency.BIWEEKLY,
+    it('gives less total interest than flat for same rate', () => {
+      const flat = service.calculateInterest({
+        principal: 10000, tenure: 12, tenureType: TenureType.MONTH,
+        interestModel: InterestModel.FLAT, interestRate: 5,
       });
-      expect(biweekly.installmentAmount).toBeCloseTo(monthly.installmentAmount / 2, 1);
+      const reducing = service.calculateInterest({
+        principal: 10000, tenure: 12, tenureType: TenureType.MONTH,
+        interestModel: InterestModel.REDUCING, interestRate: 5,
+      });
+      expect(reducing.interestAmount).toBeLessThan(flat.interestAmount);
     });
   });
 
-  describe('getNumberOfInstallments', () => {
-    it('returns tenure for MONTHLY', () => {
-      expect(service.getNumberOfInstallments(12, RepaymentFrequency.MONTHLY)).toBe(12);
+  describe('input validation', () => {
+    it('throws when neither interestRate nor interestAmount provided', () => {
+      expect(() =>
+        service.calculateInterest({
+          principal: 5000,
+          tenure: 6,
+          tenureType: TenureType.MONTH,
+          interestModel: InterestModel.FLAT,
+        }),
+      ).toThrow();
     });
 
-    it('returns tenure * 4 for WEEKLY', () => {
-      expect(service.getNumberOfInstallments(12, RepaymentFrequency.WEEKLY)).toBe(48);
-    });
-
-    it('returns tenure * 2 for BIWEEKLY', () => {
-      expect(service.getNumberOfInstallments(12, RepaymentFrequency.BIWEEKLY)).toBe(24);
+    it('throws when both interestRate and interestAmount provided', () => {
+      expect(() =>
+        service.calculateInterest({
+          principal: 5000,
+          tenure: 6,
+          tenureType: TenureType.MONTH,
+          interestModel: InterestModel.FLAT,
+          interestRate: 5,
+          interestAmount: 250,
+        }),
+      ).toThrow();
     });
   });
 });

@@ -1,0 +1,27 @@
+.loading {
+  height: 100vh;
+}
+
+.siderLogo {
+  height: 56px;
+  border-bottom: 1px solid #f0f0f0;
+  font-weight: 700;
+  color: #1677ff;
+  font-size: 15px;
+}
+
+.sider {
+  background: #fff !important;
+  box-shadow: 2px 0 8px rgb(0 0 0 / 6%);
+  overflow: auto;
+  height: 100vh;
+  position: sticky !important;
+  top: 0;
+  left: 0;
+}
+
+.content {
+  border-radius: 12px;
+  min-height: 360px;
+  background: #fff;
+}

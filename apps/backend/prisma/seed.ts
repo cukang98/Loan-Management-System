@@ -1,29 +1,103 @@
-import { PrismaClient, LoanStatus, RepaymentFrequency, InterestModel } from '@prisma/client';
+import {
+  PrismaClient,
+  LoanStatus,
+  TenureType,
+  RepaymentType,
+  InterestModel,
+  ScheduleStatus,
+  PaymentMethod,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+function round(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/** Adds months while clamping to the last valid day (e.g. Jan 31 + 1 → Feb 28). */
+function addMonths(date: Date, months: number): Date {
+  const d = new Date(date);
+  const targetDay = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  if (d.getDate() < targetDay) d.setDate(0);
+  return d;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+interface ScheduleItem {
+  installmentNo: number;
+  dueDate: Date;
+  principalDue: number;
+  interestDue: number;
+  totalDue: number;
+}
+
+/** Generates a flat-interest installment schedule (equal principal + equal interest). */
+function generateFlatInstallmentSchedule(
+  principal: number,
+  interestAmount: number,
+  tenure: number,
+  tenureType: TenureType,
+  startDate: Date,
+): ScheduleItem[] {
+  const schedule: ScheduleItem[] = [];
+  const principalPerPeriod = round(principal / tenure);
+  const interestPerPeriod = round(interestAmount / tenure);
+
+  for (let i = 1; i <= tenure; i++) {
+    const isLast = i === tenure;
+    const principalDue = isLast
+      ? round(principal - principalPerPeriod * (tenure - 1))
+      : principalPerPeriod;
+    const interestDue = isLast
+      ? round(interestAmount - interestPerPeriod * (tenure - 1))
+      : interestPerPeriod;
+
+    let dueDate: Date;
+    switch (tenureType) {
+      case TenureType.DAY:
+        dueDate = addDays(startDate, i);
+        break;
+      case TenureType.WEEK:
+        dueDate = addDays(startDate, i * 7);
+        break;
+      case TenureType.MONTH:
+      default:
+        dueDate = addMonths(startDate, i);
+        break;
+    }
+
+    schedule.push({ installmentNo: i, dueDate, principalDue, interestDue, totalDue: round(principalDue + interestDue) });
+  }
+
+  return schedule;
+}
+
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Clear existing data (order matters for FK constraints)
+  // Clear existing data in FK-safe order
+  await prisma.repaymentAllocation.deleteMany();
   await prisma.repayment.deleteMany();
+  await prisma.repaymentSchedule.deleteMany();
   await prisma.loan.deleteMany();
   await prisma.customer.deleteMany();
-  await prisma.lender.deleteMany();
   await prisma.refreshToken.deleteMany();
   await prisma.user.deleteMany();
   await prisma.permission.deleteMany();
   await prisma.userGroup.deleteMany();
 
-  // --- User Groups ---
+  // ─── User groups ──────────────────────────────────────────────────────────
   const modules = ['loans', 'customers', 'lenders', 'repayments', 'users', 'user-groups'];
 
   const superAdminGroup = await prisma.userGroup.create({
-    data: {
-      name: 'Super Admin',
-      isSuperAdmin: true,
-    },
+    data: { name: 'Super Admin', isSuperAdmin: true },
   });
 
   const loanOfficerGroup = await prisma.userGroup.create({
@@ -50,60 +124,68 @@ async function main() {
     data: {
       name: 'Viewer',
       isSuperAdmin: false,
-      permissions: {
-        create: modules.map((module) => ({ module, action: 'read' })),
-      },
+      permissions: { create: modules.map((module) => ({ module, action: 'read' })) },
     },
   });
 
   console.log('✅ User groups created');
 
-  // --- Users ---
-  const passwordHash = await bcrypt.hash('Admin1234!', 12);
-  const staffHash = await bcrypt.hash('Staff1234!', 12);
-  const viewerHash = await bcrypt.hash('View1234!', 12);
+  // ─── Staff users ──────────────────────────────────────────────────────────
+  const [passwordHash, staffHash, viewerHash] = await Promise.all([
+    bcrypt.hash('Admin1234!', 12),
+    bcrypt.hash('Staff1234!', 12),
+    bcrypt.hash('View1234!', 12),
+  ]);
 
   await prisma.user.createMany({
     data: [
       {
         email: 'admin@loanapp.com',
+        userId: 'admin',
         password: passwordHash,
         name: 'System Administrator',
+        actorType: 'USER',
         userGroupId: superAdminGroup.id,
       },
       {
         email: 'officer@loanapp.com',
+        userId: 'officer',
         password: staffHash,
         name: 'Loan Officer',
+        actorType: 'USER',
         userGroupId: loanOfficerGroup.id,
       },
       {
         email: 'viewer@loanapp.com',
+        userId: 'viewer',
         password: viewerHash,
         name: 'Report Viewer',
+        actorType: 'USER',
         userGroupId: viewerGroup.id,
       },
     ],
   });
 
-  console.log('✅ Users created');
+  console.log('✅ Staff users created');
 
-  // --- Lenders ---
+  // ─── Lenders ──────────────────────────────────────────────────────────────
+  const lenderHash = await bcrypt.hash('Lender1234!', 12);
+
   const lenders = await Promise.all([
-    prisma.lender.create({
-      data: { name: 'Capital Partners Ltd', availableCapital: 500000, totalLent: 0 },
+    prisma.user.create({
+      data: { userId: 'capital_partners', password: lenderHash, name: 'Capital Partners Ltd', actorType: 'LENDER', availableCapital: 500000, totalLent: 0 },
     }),
-    prisma.lender.create({
-      data: { name: 'Golden Finance Group', availableCapital: 250000, totalLent: 0 },
+    prisma.user.create({
+      data: { userId: 'golden_finance', password: lenderHash, name: 'Golden Finance Group', actorType: 'LENDER', availableCapital: 250000, totalLent: 0 },
     }),
-    prisma.lender.create({
-      data: { name: 'Sunrise Credit Co.', availableCapital: 150000, totalLent: 0 },
+    prisma.user.create({
+      data: { userId: 'sunrise_credit', password: lenderHash, name: 'Sunrise Credit Co.', actorType: 'LENDER', availableCapital: 150000, totalLent: 0 },
     }),
   ]);
 
   console.log('✅ Lenders created');
 
-  // --- Customers ---
+  // ─── Customers ────────────────────────────────────────────────────────────
   const customers = await Promise.all([
     prisma.customer.create({ data: { fullName: 'Zhang Wei', phone: '012-3456789', email: 'zhang.wei@email.com', address: 'Kuala Lumpur' } }),
     prisma.customer.create({ data: { fullName: 'Lim Mei Ling', phone: '011-2345678', email: 'lim.mei@email.com', address: 'Penang' } }),
@@ -119,150 +201,157 @@ async function main() {
 
   console.log('✅ Customers created');
 
-  // --- Loans ---
-  function calcFlat(principal: number, rate: number, tenureMonths: number, freq: RepaymentFrequency) {
-    const interest = principal * (rate / 100) * (tenureMonths / 12);
-    const total = principal + interest;
-    const installments = freq === 'WEEKLY' ? tenureMonths * 4 : freq === 'BIWEEKLY' ? tenureMonths * 2 : tenureMonths;
-    return { totalRepayment: total, installmentAmount: total / installments };
-  }
+  // ─── Loans ────────────────────────────────────────────────────────────────
+  type LoanDef = {
+    customer: number;
+    lender: number;
+    principal: number;
+    interestRate: number;      // flat rate as % of principal
+    tenure: number;
+    tenureType: TenureType;
+    repaymentType: RepaymentType;
+    interestModel: InterestModel;
+    status: LoanStatus;
+    startDate: Date;
+  };
 
-  function calcReducing(principal: number, rate: number, tenureMonths: number, freq: RepaymentFrequency) {
-    const monthlyRate = rate / 100 / 12;
-    const installment = principal * monthlyRate / (1 - Math.pow(1 + monthlyRate, -tenureMonths));
-    const freqMultiplier = freq === 'WEEKLY' ? 4 : freq === 'BIWEEKLY' ? 2 : 1;
-    const perPeriodInstallment = installment / freqMultiplier;
-    const numInstallments = tenureMonths * freqMultiplier;
-    return { totalRepayment: perPeriodInstallment * numInstallments, installmentAmount: perPeriodInstallment };
-  }
-
-  const loanDefs = [
-    { customer: 0, lender: 0, principal: 10000, rate: 8, tenure: 12, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.ACTIVE, startDate: new Date('2025-06-01') },
-    { customer: 1, lender: 0, principal: 25000, rate: 6.5, tenure: 24, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.ACTIVE, startDate: new Date('2025-07-01') },
-    { customer: 2, lender: 1, principal: 5000, rate: 10, tenure: 6, freq: RepaymentFrequency.WEEKLY, model: InterestModel.FLAT, status: LoanStatus.ACTIVE, startDate: new Date('2025-08-01') },
-    { customer: 3, lender: 1, principal: 15000, rate: 7, tenure: 18, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.ACTIVE, startDate: new Date('2025-09-01') },
-    { customer: 4, lender: 2, principal: 8000, rate: 9, tenure: 12, freq: RepaymentFrequency.BIWEEKLY, model: InterestModel.FLAT, status: LoanStatus.ACTIVE, startDate: new Date('2025-10-01') },
-    { customer: 5, lender: 0, principal: 30000, rate: 5.5, tenure: 36, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.ACTIVE, startDate: new Date('2025-11-01') },
-    { customer: 6, lender: 2, principal: 12000, rate: 8.5, tenure: 12, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.ACTIVE, startDate: new Date('2025-12-01') },
-    { customer: 7, lender: 1, principal: 20000, rate: 7.5, tenure: 24, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.ACTIVE, startDate: new Date('2026-01-01') },
-    // Completed
-    { customer: 0, lender: 0, principal: 5000, rate: 8, tenure: 3, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.COMPLETED, startDate: new Date('2024-06-01') },
-    { customer: 1, lender: 1, principal: 8000, rate: 6, tenure: 6, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.COMPLETED, startDate: new Date('2024-07-01') },
-    { customer: 2, lender: 2, principal: 3000, rate: 10, tenure: 3, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.COMPLETED, startDate: new Date('2024-09-01') },
-    { customer: 8, lender: 0, principal: 10000, rate: 7, tenure: 6, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.COMPLETED, startDate: new Date('2024-10-01') },
-    { customer: 9, lender: 1, principal: 6000, rate: 9, tenure: 4, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.COMPLETED, startDate: new Date('2024-12-01') },
-    // Defaulted
-    { customer: 3, lender: 2, principal: 15000, rate: 12, tenure: 12, freq: RepaymentFrequency.MONTHLY, model: InterestModel.FLAT, status: LoanStatus.DEFAULTED, startDate: new Date('2024-01-01') },
-    { customer: 4, lender: 0, principal: 20000, rate: 11, tenure: 18, freq: RepaymentFrequency.MONTHLY, model: InterestModel.REDUCING, status: LoanStatus.DEFAULTED, startDate: new Date('2024-03-01') },
+  const loanDefs: LoanDef[] = [
+    // Active loans
+    { customer: 0, lender: 0, principal: 10000, interestRate: 10, tenure: 12, tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-06-01') },
+    { customer: 1, lender: 0, principal: 25000, interestRate: 8,  tenure: 24, tenureType: TenureType.MONTH, repaymentType: RepaymentType.MONTHLY,     interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-07-01') },
+    { customer: 2, lender: 1, principal: 5000,  interestRate: 5,  tenure: 30, tenureType: TenureType.DAY,   repaymentType: RepaymentType.DAILY,       interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-08-01') },
+    { customer: 3, lender: 1, principal: 15000, interestRate: 6,  tenure: 18, tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.REDUCING, status: LoanStatus.ACTIVE,    startDate: new Date('2025-09-01') },
+    { customer: 4, lender: 2, principal: 8000,  interestRate: 4,  tenure: 8,  tenureType: TenureType.WEEK,  repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-10-01') },
+    { customer: 5, lender: 0, principal: 30000, interestRate: 9,  tenure: 36, tenureType: TenureType.MONTH, repaymentType: RepaymentType.ROLLING,     interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-11-01') },
+    { customer: 6, lender: 2, principal: 12000, interestRate: 10, tenure: 12, tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2025-12-01') },
+    { customer: 7, lender: 1, principal: 20000, interestRate: 7,  tenure: 24, tenureType: TenureType.MONTH, repaymentType: RepaymentType.MONTHLY,     interestModel: InterestModel.FLAT,     status: LoanStatus.ACTIVE,    startDate: new Date('2026-01-01') },
+    // Completed loans
+    { customer: 0, lender: 0, principal: 5000,  interestRate: 8,  tenure: 3,  tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.COMPLETED, startDate: new Date('2024-06-01') },
+    { customer: 1, lender: 1, principal: 8000,  interestRate: 6,  tenure: 6,  tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.COMPLETED, startDate: new Date('2024-07-01') },
+    { customer: 2, lender: 2, principal: 3000,  interestRate: 10, tenure: 3,  tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.COMPLETED, startDate: new Date('2024-09-01') },
+    { customer: 8, lender: 0, principal: 10000, interestRate: 7,  tenure: 6,  tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.COMPLETED, startDate: new Date('2024-10-01') },
+    { customer: 9, lender: 1, principal: 6000,  interestRate: 9,  tenure: 4,  tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.COMPLETED, startDate: new Date('2024-12-01') },
+    // Defaulted loans
+    { customer: 3, lender: 2, principal: 15000, interestRate: 12, tenure: 12, tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.FLAT,     status: LoanStatus.DEFAULTED, startDate: new Date('2024-01-01') },
+    { customer: 4, lender: 0, principal: 20000, interestRate: 11, tenure: 18, tenureType: TenureType.MONTH, repaymentType: RepaymentType.INSTALLMENT, interestModel: InterestModel.REDUCING, status: LoanStatus.DEFAULTED, startDate: new Date('2024-03-01') },
   ];
 
-  const createdLoans = [];
+  const createdLoans: { id: string; def: LoanDef }[] = [];
+
   for (const def of loanDefs) {
-    const calc = def.model === InterestModel.FLAT
-      ? calcFlat(def.principal, def.rate, def.tenure, def.freq)
-      : calcReducing(def.principal, def.rate, def.tenure, def.freq);
+    const interestAmount = round(def.principal * def.interestRate / 100);
+    const schedule = generateFlatInstallmentSchedule(
+      def.principal,
+      interestAmount,
+      def.tenure,
+      def.tenureType,
+      def.startDate,
+    );
+
+    // For completed loans, mark all schedules PAID; defaulted → first 2 PAID, rest OVERDUE
+    const scheduleStatuses: ScheduleStatus[] = schedule.map((_, i) => {
+      if (def.status === LoanStatus.COMPLETED) return ScheduleStatus.PAID;
+      if (def.status === LoanStatus.DEFAULTED) return i < 2 ? ScheduleStatus.PAID : ScheduleStatus.OVERDUE;
+      return ScheduleStatus.PENDING;
+    });
 
     const loan = await prisma.loan.create({
       data: {
         customerId: customers[def.customer].id,
         lenderId: lenders[def.lender].id,
         principal: def.principal,
-        interestRate: def.rate,
-        tenureMonths: def.tenure,
-        repaymentFrequency: def.freq,
-        interestModel: def.model,
-        totalRepayment: Math.round(calc.totalRepayment * 100) / 100,
-        installmentAmount: Math.round(calc.installmentAmount * 100) / 100,
+        interestRate: def.interestRate,
+        interestAmount,
+        tenure: def.tenure,
+        tenureType: def.tenureType,
+        repaymentType: def.repaymentType,
+        interestModel: def.interestModel,
         status: def.status,
         startDate: def.startDate,
+        schedules: {
+          create: schedule.map((item, i) => ({
+            installmentNo: item.installmentNo,
+            dueDate: item.dueDate,
+            principalDue: item.principalDue,
+            interestDue: item.interestDue,
+            totalDue: item.totalDue,
+            paidAmount: scheduleStatuses[i] === ScheduleStatus.PAID ? item.totalDue : 0,
+            status: scheduleStatuses[i],
+          })),
+        },
       },
+      include: { schedules: { orderBy: { installmentNo: 'asc' } } },
     });
-    createdLoans.push(loan);
 
-    await prisma.lender.update({
+    await prisma.user.update({
       where: { id: lenders[def.lender].id },
       data: { totalLent: { increment: def.principal } },
     });
-  }
 
-  console.log('✅ Loans created');
+    createdLoans.push({ id: loan.id, def });
 
-  // --- Repayments for active loans ---
-  const now = new Date();
-
-  for (let i = 0; i < 8; i++) {
-    const loan = createdLoans[i];
-    const installment = parseFloat(loan.installmentAmount.toString());
-    let remaining = parseFloat(loan.totalRepayment.toString());
-    const numRepayments = Math.min(3, Math.floor(Math.random() * 4) + 1);
-
-    for (let j = 0; j < numRepayments; j++) {
-      remaining -= installment;
-      const paidAt = new Date(loan.startDate);
-      paidAt.setMonth(paidAt.getMonth() + j + 1);
-      const isOverdue = paidAt < now && Math.random() > 0.6;
-      const overdueDays = isOverdue ? Math.floor(Math.random() * 45) + 1 : 0;
-
-      await prisma.repayment.create({
+    // Create repayment records for PAID schedules
+    const paidSchedules = loan.schedules.filter((s) => s.status === ScheduleStatus.PAID);
+    for (const sch of paidSchedules) {
+      const repayment = await prisma.repayment.create({
         data: {
           loanId: loan.id,
-          paidAmount: Math.round(installment * 100) / 100,
-          paidAt,
-          remainingBalance: Math.max(0, Math.round(remaining * 100) / 100),
-          overdueDays,
+          amount: Number(sch.totalDue),
+          paymentDate: sch.dueDate,
+          method: PaymentMethod.CASH,
+        },
+      });
+
+      await prisma.repaymentAllocation.create({
+        data: {
+          repaymentId: repayment.id,
+          scheduleId: sch.id,
+          amountApplied: Number(sch.totalDue),
         },
       });
     }
   }
 
-  // Full repayments for completed loans
-  for (let i = 8; i < 13; i++) {
-    const loan = createdLoans[i];
-    const installment = parseFloat(loan.installmentAmount.toString());
-    let remaining = parseFloat(loan.totalRepayment.toString());
-    const numInstallments = loan.tenureMonths;
+  console.log('✅ Loans and schedules created');
 
-    for (let j = 0; j < numInstallments; j++) {
-      remaining -= installment;
-      const paidAt = new Date(loan.startDate);
-      paidAt.setMonth(paidAt.getMonth() + j + 1);
+  // Active loans: seed a few partial repayments
+  const activeLoans = createdLoans.filter((l) => l.def.status === LoanStatus.ACTIVE);
+  for (const { id: loanId } of activeLoans.slice(0, 5)) {
+    const loan = await prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { schedules: { orderBy: { installmentNo: 'asc' }, take: 3 } },
+    });
+    if (!loan) continue;
 
-      await prisma.repayment.create({
+    // Pay first 1-2 installments
+    const numToPay = Math.floor(Math.random() * 2) + 1;
+    for (let i = 0; i < Math.min(numToPay, loan.schedules.length); i++) {
+      const sch = loan.schedules[i];
+      const repayment = await prisma.repayment.create({
         data: {
-          loanId: loan.id,
-          paidAmount: Math.round(installment * 100) / 100,
-          paidAt,
-          remainingBalance: Math.max(0, Math.round(remaining * 100) / 100),
-          overdueDays: 0,
+          loanId,
+          amount: Number(sch.totalDue),
+          paymentDate: sch.dueDate,
+          method: PaymentMethod.CASH,
         },
+      });
+
+      await prisma.repaymentAllocation.create({
+        data: {
+          repaymentId: repayment.id,
+          scheduleId: sch.id,
+          amountApplied: Number(sch.totalDue),
+        },
+      });
+
+      await prisma.repaymentSchedule.update({
+        where: { id: sch.id },
+        data: { paidAmount: Number(sch.totalDue), status: ScheduleStatus.PAID },
       });
     }
   }
 
-  // Partial repayments for defaulted loans
-  for (let i = 13; i < 15; i++) {
-    const loan = createdLoans[i];
-    const installment = parseFloat(loan.installmentAmount.toString());
-    let remaining = parseFloat(loan.totalRepayment.toString());
-
-    for (let j = 0; j < 2; j++) {
-      remaining -= installment;
-      const paidAt = new Date(loan.startDate);
-      paidAt.setMonth(paidAt.getMonth() + j + 1);
-
-      await prisma.repayment.create({
-        data: {
-          loanId: loan.id,
-          paidAmount: Math.round(installment * 100) / 100,
-          paidAt,
-          remainingBalance: Math.max(0, Math.round(remaining * 100) / 100),
-          overdueDays: 90 + j * 30,
-        },
-      });
-    }
-  }
-
-  console.log('✅ Repayments created');
+  console.log('✅ Partial repayments seeded for active loans');
   console.log('🎉 Seeding complete!');
 }
 

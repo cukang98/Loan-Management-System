@@ -6,14 +6,14 @@ export class PaginationDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  pageIndex: number = 1;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 20;
+  pageSize: number = 10;
 
   @IsOptional()
   @IsString()
@@ -29,6 +29,6 @@ export class PaginationDto {
   order?: 'asc' | 'desc';
 
   get skip(): number {
-    return (this.page - 1) * this.limit;
+    return (this.pageIndex - 1) * this.pageSize;
   }
 }

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+
 import './globals.css';
 import { AppProviders } from '@/providers/AppProviders';
 
@@ -7,11 +8,11 @@ export const metadata: Metadata = {
   description: 'Professional loan management admin dashboard',
 };
 
-export default function RootLayout({
-  children,
-}: {
+const RootLayout: React.FC<{
   children: React.ReactNode;
-}) {
+}> = ({
+  children,
+}) => {
   return (
     <html lang="zh">
       <body>
@@ -19,4 +20,6 @@ export default function RootLayout({
       </body>
     </html>
   );
-}
+};
+
+export default RootLayout;

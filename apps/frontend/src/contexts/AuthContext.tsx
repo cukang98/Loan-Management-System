@@ -1,9 +1,11 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+
 import { setAccessToken, clearAuth } from '@/lib/auth';
-import api from '@/lib/axios';
+import { login as loginApi, logout as logoutApi, refreshToken } from '@/services/auth.api';
+
+export type ActorType = 'USER' | 'LENDER';
 
 export interface UserGroup {
   id: string;
@@ -14,18 +16,26 @@ export interface UserGroup {
 
 export interface AuthUser {
   id: string;
-  email: string;
+  userId: string;
+  email?: string | null;
   name: string;
+  actorType: ActorType;
   userGroup: UserGroup | null;
 }
 
 interface AuthContextType {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (userId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   hasPermission: (module: string, action: string) => boolean;
+  isLender: boolean;
 }
+
+const LENDER_PERMISSIONS = [
+  { module: 'loans', action: 'read' },
+  { module: 'repayments', action: 'read' },
+];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -36,14 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const restoreSession = async () => {
       try {
-        const res = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true },
-        );
-        const { accessToken, user: authUser } = res.data.data;
+        const { accessToken, user: authUser } = await refreshToken();
         setAccessToken(accessToken);
-        setUser(authUser);
+        setUser(authUser as AuthUser);
       } catch {
         // No valid session
       } finally {
@@ -54,16 +59,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     restoreSession();
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await api.post('/auth/login', { email, password });
-    const { accessToken, user: authUser } = res.data.data;
+  const login = useCallback(async (userId: string, password: string) => {
+    const { accessToken, user: authUser } = await loginApi({ userId, password });
     setAccessToken(accessToken);
-    setUser(authUser);
+    setUser(authUser as AuthUser);
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await api.post('/auth/logout');
+      await logoutApi();
     } finally {
       clearAuth();
       setUser(null);
@@ -72,8 +76,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const hasPermission = useCallback(
     (module: string, action: string): boolean => {
-      if (!user?.userGroup) return false;
+      if (!user) return false;
+
+      if (user.actorType === 'LENDER') {
+        return LENDER_PERMISSIONS.some((p) => p.module === module && p.action === action);
+      }
+
+      if (!user.userGroup) return false;
       if (user.userGroup.isSuperAdmin) return true;
+
       return user.userGroup.permissions.some(
         (p) => p.module === module && p.action === action,
       );
@@ -81,8 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const isLender = user?.actorType === 'LENDER';
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, hasPermission }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, hasPermission, isLender }}>
       {children}
     </AuthContext.Provider>
   );
@@ -90,6 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
 export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
+
   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+
   return ctx;
 };

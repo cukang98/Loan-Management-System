@@ -1,32 +1,35 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 import { App } from 'antd';
+
 import type { AxiosError } from 'axios';
-import api from '@/lib/axios';
-import type { LoanDto, PaginatedData } from '@ck-loan/shared';
 
-interface LoanQuery {
-  page?: number; limit?: number; search?: string;
-  status?: string; lenderId?: string; customerId?: string;
-}
+import {
+  loansKeys,
+  getLoans,
+  getLoanById,
+  createLoan,
+  previewLoan,
+  updateLoanById,
+} from '@/services/loans.api';
+import { lendersKeys } from '@/services/lenders.api';
 
-type ApiErrorResponse = AxiosError<{ message?: string }>;
+import type { LoanQuery, CreateLoanPayload, PreviewLoanPayload, UpdateLoanPayload } from '@/services/loans.api';
+
+type ApiError = AxiosError<{ message?: string }>;
+
+export { LoanQuery };
 
 export const useLoans = (query: LoanQuery = {}) =>
-  useQuery<PaginatedData<LoanDto>>({
-    queryKey: ['loans', 'list', query],
-    queryFn: async () => {
-      const res = await api.get('/loans', { params: query });
-      return res.data.data;
-    },
+  useQuery({
+    queryKey: loansKeys.list(query),
+    queryFn: () => getLoans(query),
   });
 
 export const useLoan = (id: string) =>
-  useQuery<LoanDto & { repayments?: import('@ck-loan/shared').RepaymentDto[] }>({
-    queryKey: ['loans', 'detail', id],
-    queryFn: async () => {
-      const res = await api.get(`/loans/${id}`);
-      return res.data.data;
-    },
+  useQuery({
+    queryKey: loansKeys.detail(id),
+    queryFn: () => getLoanById(id),
     enabled: !!id,
   });
 
@@ -34,14 +37,23 @@ export const useCreateLoan = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();
   return useMutation({
-    mutationFn: (data: unknown) => api.post('/loans', data),
+    mutationFn: (data: CreateLoanPayload) => createLoan(data),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['loans'] });
-      qc.invalidateQueries({ queryKey: ['lenders'] });
+      qc.invalidateQueries({ queryKey: loansKeys.lists() });
+      qc.invalidateQueries({ queryKey: lendersKeys.lists() });
       message.success('贷款已创建');
     },
-    onError: (err: ApiErrorResponse) =>
+    onError: (err: ApiError) =>
       message.error(err?.response?.data?.message || '操作失败'),
+  });
+};
+
+export const usePreviewLoan = () => {
+  const { message } = App.useApp();
+  return useMutation({
+    mutationFn: (data: PreviewLoanPayload) => previewLoan(data),
+    onError: (err: ApiError) =>
+      message.error(err?.response?.data?.message || '预览失败'),
   });
 };
 
@@ -49,12 +61,14 @@ export const useUpdateLoan = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: unknown }) =>
-      api.patch(`/loans/${id}`, data),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['loans'] });
+    mutationFn: ({ id, data }: { id: string; data: UpdateLoanPayload }) =>
+      updateLoanById(id, data),
+    onSuccess: (_data, { id }) => {
+      qc.invalidateQueries({ queryKey: loansKeys.lists() });
+      qc.invalidateQueries({ queryKey: loansKeys.detail(id) });
       message.success('贷款已更新');
     },
-    onError: () => message.error('操作失败'),
+    onError: (err: ApiError) =>
+      message.error(err?.response?.data?.message || '操作失败'),
   });
 };

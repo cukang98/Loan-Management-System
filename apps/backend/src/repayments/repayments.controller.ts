@@ -1,6 +1,7 @@
 import {
-  Controller, Get, Post, Body, Query, UseGuards,
+  Controller, Get, Post, Body, Query, Req, UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { RepaymentsService, RepaymentFilterDto } from './repayments.service';
 import { CreateRepaymentDto } from './dto/create-repayment.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,7 +15,10 @@ export class RepaymentsController {
 
   @Get()
   @RequirePermission('repayments', 'read')
-  findAll(@Query() query: RepaymentFilterDto) {
+  findAll(@Query() query: RepaymentFilterDto, @Req() req: Request & { user: any }) {
+    if (req.user.actorType === 'LENDER') {
+      query.lenderId = req.user.id;
+    }
     return this.repaymentsService.findAll(query);
   }
 

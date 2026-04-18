@@ -4,15 +4,18 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 
+export type ActorType = 'USER' | 'LENDER';
+
 export interface JwtPayload {
   sub: string;
-  email: string;
+  userId: string;
+  actorType: ActorType;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    config: ConfigService,
+    private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
     super({
@@ -25,17 +28,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
-      include: {
-        userGroup: {
-          include: { permissions: true },
-        },
-      },
+      include: { userGroup: { include: { permissions: true } } },
     });
 
     if (!user || !user.isActive) {
       throw new UnauthorizedException('User not found or inactive');
     }
 
-    return user;
+    return { ...user, actorType: user.actorType as ActorType };
   }
 }

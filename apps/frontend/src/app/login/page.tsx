@@ -2,24 +2,34 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Form, Input, Button, Card, Typography, App } from 'antd';
-import { LockOutlined, MailOutlined, BankOutlined } from '@ant-design/icons';
 import { useTranslations } from 'next-intl';
+
+// antd
+import { Form, Input, Button, Card, Typography, App } from 'antd';
+
+// ant design icons
+import { LockOutlined, BankOutlined } from '@ant-design/icons';
+
+// contexts
 import { useAuth } from '@/contexts/AuthContext';
+
+// components
+import { LanguageSwitcher } from '@/components/common/LanguageSwitcher';
 
 const { Title, Text } = Typography;
 
-export default function LoginPage() {
+const LoginPage: React.FC = () => {
   const t = useTranslations('auth');
   const { login } = useAuth();
   const router = useRouter();
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
 
-  const onFinish = async (values: { email: string; password: string }) => {
+  const onFinish = async (values: { userId: string; password: string }) => {
     setLoading(true);
+
     try {
-      await login(values.email, values.password);
+      await login(values.userId, values.password);
       router.push('/dashboard');
     } catch {
       message.error(t('invalidCredentials'));
@@ -42,8 +52,13 @@ export default function LoginPage() {
         style={{ width: 420, borderRadius: 16, boxShadow: '0 20px 60px rgba(0,0,0,0.15)' }}
         styles={{ body: { padding: 40 } }}
       >
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <LanguageSwitcher />
+        </div>
+
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
           <BankOutlined style={{ fontSize: 48, color: '#1677ff' }} />
+
           <Title level={3} style={{ marginTop: 12, marginBottom: 4 }}>
             {t('loginTitle')}
           </Title>
@@ -52,10 +67,10 @@ export default function LoginPage() {
 
         <Form layout="vertical" onFinish={onFinish} size="large">
           <Form.Item
-            name="email"
-            rules={[{ required: true, type: 'email' }]}
+            name="userId"
+            rules={[{ required: true }]}
           >
-            <Input prefix={<MailOutlined />} placeholder={t('email')} />
+            <Input prefix={<BankOutlined />} placeholder={t('userId')} />
           </Form.Item>
 
           <Form.Item
@@ -80,4 +95,6 @@ export default function LoginPage() {
       </Card>
     </div>
   );
-}
+};
+
+export default LoginPage;

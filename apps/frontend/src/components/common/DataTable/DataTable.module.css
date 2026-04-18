@@ -1,0 +1,12 @@
+.toolbar {
+  margin-bottom: 16px;
+}
+
+.listItem {
+  padding: 0 !important;
+  border-bottom: none !important;
+}
+
+.listItem + .listItem {
+  margin-top: 8px;
+}
