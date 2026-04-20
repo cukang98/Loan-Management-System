@@ -1,42 +1,34 @@
-# Build from monorepo root context
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Copy workspace config
+# Ensure we have openssl for prisma
+RUN apk add --no-cache openssl
+
 COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
+COPY turbo.json ./
+COPY apps/frontend/package*.json ./apps/frontend/
 COPY apps/backend/package*.json ./apps/backend/
+COPY packages/ ./packages/
+RUN npm ci
 
-# Install all workspace dependencies
-RUN npm install --workspaces
+COPY . .
+RUN cd apps/backend && npx prisma generate
+RUN npx turbo run build --filter=@ck-loan/backend
 
-# Copy source
-COPY packages/shared/ ./packages/shared/
-COPY apps/backend/ ./apps/backend/
-
-# Build shared package first, then backend
-RUN npm run build -w packages/shared
-RUN npm run build -w apps/backend
-RUN npx prisma generate --schema=./apps/backend/prisma/schema.prisma
-
-# Production image
 FROM node:20-alpine AS runner
-
 WORKDIR /app
+ENV NODE_ENV=production
 
-COPY package*.json ./
-COPY packages/shared/package*.json ./packages/shared/
-COPY apps/backend/package*.json ./apps/backend/
+RUN apk add --no-cache openssl
 
-RUN npm install --workspaces --omit=dev
-
-COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
-COPY --from=builder /app/apps/backend/node_modules/.prisma ./apps/backend/node_modules/.prisma
-COPY apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
+COPY --from=builder /app/packages ./packages
 
 EXPOSE 3001
 
-# Run migrations then start
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=./apps/backend/prisma/schema.prisma && node apps/backend/dist/main"]
+# Migrate DB before start
+CMD ["sh", "-c", "cd apps/backend && npx prisma migrate deploy && node dist/main.js"]

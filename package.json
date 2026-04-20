@@ -12,7 +12,15 @@
     "lint": "turbo run lint"
   },
   "devDependencies": {
+    "@commitlint/cli": "^20.5.0",
+    "@commitlint/config-conventional": "^20.5.0",
+    "@digitalroute/cz-conventional-changelog-for-jira": "^8.0.1",
     "turbo": "^2.0.0",
     "typescript": "^5.4.5"
+  },
+  "config": {
+    "commitizen": {
+      "path": "./commitizen.js"
+    }
   }
 }
