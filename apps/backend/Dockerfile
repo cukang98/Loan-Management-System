@@ -17,7 +17,7 @@
   COPY . .
   
   # 只保留 backend 需要的依赖（🔥关键）
-  RUN turbo prune --scope=@ck-loan/backend --docker
+  RUN turbo prune @ck-loan/backend --docker
   
   # -----------------------------
   # 3. Install dependencies
