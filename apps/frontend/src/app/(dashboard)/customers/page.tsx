@@ -1,29 +1,34 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 // next-intl
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 
 // antd
-import { Button, Form } from 'antd';
+import { Button, Form } from "antd";
 
 // antd icons
-import { PlusOutlined } from '@ant-design/icons';
+import { PlusOutlined } from "@ant-design/icons";
 
+// hooks
+import CustomerTable from "./components/CustomerTable";
+import CustomerFormModal from "./components/CustomerFormModal";
+import {
+  useCustomers,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
+} from "@/hooks/useCustomers";
 
 // components
-import { PageHeader, PermissionGuard } from '@/components/common';
-import { useCustomers, useCreateCustomer, useUpdateCustomer, useDeleteCustomer } from '@/hooks/useCustomers';
-
-import { CustomerTable } from './components/CustomerTable';
-import { CustomerFormModal } from './components/CustomerFormModal';
+import { PermissionGuard, PageHeader } from "@/components/common";
 
 const CustomersPage: React.FC = () => {
-  const t = useTranslations('customers');
+  const t = useTranslations("customers");
   const [form] = Form.useForm();
   const [pageIndex, setPageIndex] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -32,7 +37,11 @@ const CustomersPage: React.FC = () => {
   const updateMutation = useUpdateCustomer();
   const deleteMutation = useDeleteCustomer();
 
-  const openCreate = () => { form.resetFields(); setEditId(null); setModalOpen(true); };
+  const openCreate = () => {
+    form.resetFields();
+    setEditId(null);
+    setModalOpen(true);
+  };
   const openEdit = (record: any) => {
     form.setFieldsValue(record);
     setEditId(record.id);
@@ -52,11 +61,11 @@ const CustomersPage: React.FC = () => {
   return (
     <>
       <PageHeader
-        title={t('title')}
+        title={t("title")}
         actions={
           <PermissionGuard module="customers" action="create">
             <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              {t('addCustomer')}
+              {t("addCustomer")}
             </Button>
           </PermissionGuard>
         }

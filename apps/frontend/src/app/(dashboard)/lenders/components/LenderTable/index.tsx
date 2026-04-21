@@ -1,9 +1,17 @@
-import { Button, Card, Flex, Popconfirm, Typography } from 'antd';
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { useTranslations } from 'next-intl';
-import { DataTable, PermissionGuard } from '@/components/common';
-import { fmtMoney } from '@/lib/utils';
-import styles from '../../page.module.css';
+import { useTranslations } from "next-intl";
+
+// antd
+import { Button, Card, Flex, Popconfirm, Typography } from "antd";
+import { EditOutlined, DeleteOutlined } from "@ant-design/icons";
+
+// components
+import styles from "../../page.module.css";
+import { DataTable, PermissionGuard } from "@/components/common";
+
+// utils
+import { fmtMoney } from "@/lib/utils";
+
+// styles
 
 interface LenderTableProps {
   data: any[];
@@ -16,27 +24,59 @@ interface LenderTableProps {
   onDelete: (id: string) => void;
 }
 
-export function LenderTable({ data, isLoading, pageIndex, total, onSearch, onPageChange, onEdit, onDelete }: LenderTableProps) {
-  const t = useTranslations('lenders');
-  const tc = useTranslations('common');
+export function LenderTable({
+  data,
+  isLoading,
+  pageIndex,
+  total,
+  onSearch,
+  onPageChange,
+  onEdit,
+  onDelete,
+}: LenderTableProps) {
+  const t = useTranslations("lenders");
+  const tc = useTranslations("common");
 
   const columns = [
-    { title: t('name'), dataIndex: 'name', key: 'name' },
-    { title: 'User ID', dataIndex: 'userId', key: 'userId' },
-    { title: t('availableCapital'), dataIndex: 'availableCapital', key: 'availableCapital', render: fmtMoney },
-    { title: t('totalLent'), dataIndex: 'totalLent', key: 'totalLent', render: fmtMoney },
+    { title: t("name"), dataIndex: "name", key: "name" },
+    { title: "User ID", dataIndex: "userId", key: "userId" },
     {
-      title: tc('actions'),
-      key: 'actions',
+      title: t("availableCapital"),
+      dataIndex: "availableCapital",
+      key: "availableCapital",
+      render: fmtMoney,
+    },
+    {
+      title: t("totalLent"),
+      dataIndex: "totalLent",
+      key: "totalLent",
+      render: fmtMoney,
+    },
+    {
+      title: tc("actions"),
+      key: "actions",
       width: 120,
       render: (_: unknown, record: any) => (
         <>
           <PermissionGuard module="lenders" action="update">
-            <Button type="link" size="small" icon={<EditOutlined />} onClick={() => onEdit(record)} />
+            <Button
+              type="link"
+              size="small"
+              icon={<EditOutlined />}
+              onClick={() => onEdit(record)}
+            />
           </PermissionGuard>
           <PermissionGuard module="lenders" action="delete">
-            <Popconfirm title={t('deleteConfirm')} onConfirm={() => onDelete(record.id)}>
-              <Button type="link" size="small" danger icon={<DeleteOutlined />} />
+            <Popconfirm
+              title={t("deleteConfirm")}
+              onConfirm={() => onDelete(record.id)}
+            >
+              <Button
+                type="link"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+              />
             </Popconfirm>
           </PermissionGuard>
         </>
@@ -60,15 +100,26 @@ export function LenderTable({ data, isLoading, pageIndex, total, onSearch, onPag
           <Flex justify="space-between" align="flex-start">
             <Flex vertical gap={2}>
               <Typography.Text strong>{record.name}</Typography.Text>
-              <Typography.Text className={styles.cardMeta}>{t('availableCapital')}: {fmtMoney(record.availableCapital)}</Typography.Text>
-              <Typography.Text className={styles.cardMeta}>{t('totalLent')}: {fmtMoney(record.totalLent)}</Typography.Text>
+              <Typography.Text className={styles.cardMeta}>
+                {t("availableCapital")}: {fmtMoney(record.availableCapital)}
+              </Typography.Text>
+              <Typography.Text className={styles.cardMeta}>
+                {t("totalLent")}: {fmtMoney(record.totalLent)}
+              </Typography.Text>
             </Flex>
             <Flex gap={4}>
               <PermissionGuard module="lenders" action="update">
-                <Button size="small" icon={<EditOutlined />} onClick={() => onEdit(record)} />
+                <Button
+                  size="small"
+                  icon={<EditOutlined />}
+                  onClick={() => onEdit(record)}
+                />
               </PermissionGuard>
               <PermissionGuard module="lenders" action="delete">
-                <Popconfirm title={t('deleteConfirm')} onConfirm={() => onDelete(record.id)}>
+                <Popconfirm
+                  title={t("deleteConfirm")}
+                  onConfirm={() => onDelete(record.id)}
+                >
                   <Button size="small" danger icon={<DeleteOutlined />} />
                 </Popconfirm>
               </PermissionGuard>

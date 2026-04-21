@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
 // react
-import { useState } from 'react';
+import { useState } from "react";
 
 // next-intl
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 
 // antd
-import { Table, Input, Empty, List, Flex, Grid } from 'antd';
-import type { TableProps } from 'antd';
+import { Table, Input, Empty, List, Flex, Grid } from "antd";
+import type { TableProps } from "antd";
 
 // ant design icons
-import { SearchOutlined } from '@ant-design/icons';
+import { SearchOutlined } from "@ant-design/icons";
 
 // styles
-import styles from './DataTable.module.css';
+import styles from "./DataTable.module.css";
 
 const { useBreakpoint } = Grid;
 
@@ -29,7 +29,7 @@ interface DataTableProps<T> extends TableProps<T> {
   mobileCardRender?: (item: T) => React.ReactNode;
 }
 
-export function DataTable<T extends object>({
+const DataTable = <T extends object>({
   onSearch,
   searchPlaceholder,
   toolbarRight,
@@ -39,9 +39,9 @@ export function DataTable<T extends object>({
   onPageChange,
   mobileCardRender,
   ...tableProps
-}: DataTableProps<T>) {
-  const t = useTranslations('common');
-  const [searchValue, setSearchValue] = useState('');
+}: DataTableProps<T>) => {
+  const t = useTranslations("common");
+  const [searchValue, setSearchValue] = useState("");
   const screens = useBreakpoint();
   const isMobile = !screens.lg;
 
@@ -53,7 +53,7 @@ export function DataTable<T extends object>({
   const toolbar = (onSearch || toolbarRight) && (
     <Flex
       justify="space-between"
-      align={isMobile ? 'stretch' : 'center'}
+      align={isMobile ? "stretch" : "center"}
       vertical={isMobile}
       gap={12}
       className={styles.toolbar}
@@ -63,7 +63,7 @@ export function DataTable<T extends object>({
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
           onSearch={handleSearch}
-          placeholder={searchPlaceholder || t('search')}
+          placeholder={searchPlaceholder || t("search")}
           allowClear
           style={isMobile ? undefined : { width: 280 }}
           prefix={<SearchOutlined />}
@@ -89,18 +89,25 @@ export function DataTable<T extends object>({
               {mobileCardRender(item)}
             </List.Item>
           )}
-          locale={{ emptyText: <Empty description={t('noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} /> }}
+          locale={{
+            emptyText: (
+              <Empty
+                description={t("noData")}
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            ),
+          }}
           pagination={
             total !== undefined
               ? {
-                current: page,
-                pageSize,
-                total,
-                onChange: onPageChange,
-                showSizeChanger: false,
-                size: 'small',
-                align: 'center',
-              }
+                  current: page,
+                  pageSize,
+                  total,
+                  onChange: onPageChange,
+                  showSizeChanger: false,
+                  size: "small",
+                  align: "center",
+                }
               : false
           }
         />
@@ -116,23 +123,28 @@ export function DataTable<T extends object>({
         {...tableProps}
         locale={{
           emptyText: (
-            <Empty description={t('noData')} image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            <Empty
+              description={t("noData")}
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+            />
           ),
         }}
         pagination={
           total !== undefined
             ? {
-              current: page,
-              pageSize,
-              total,
-              onChange: onPageChange,
-              showSizeChanger: true,
-              showTotal: (tot) => t('total', { count: tot }),
-            }
+                current: page,
+                pageSize,
+                total,
+                onChange: onPageChange,
+                showSizeChanger: true,
+                showTotal: (tot) => t("total", { count: tot }),
+              }
             : tableProps.pagination
         }
-        scroll={isMobile ? { x: 'max-content' } : undefined}
+        scroll={isMobile ? { x: "max-content" } : undefined}
       />
     </>
   );
-}
+};
+
+export default DataTable;

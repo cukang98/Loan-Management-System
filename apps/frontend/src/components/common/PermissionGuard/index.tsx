@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PermissionGuardProps {
   module: string;
@@ -9,15 +9,17 @@ interface PermissionGuardProps {
   fallback?: React.ReactNode;
 }
 
-export function PermissionGuard({
+const PermissionGuard: React.FC<PermissionGuardProps> = ({
   module,
   action,
   children,
   fallback = null,
-}: PermissionGuardProps) {
+}) => {
   const { hasPermission } = useAuth();
 
   if (!hasPermission(module, action)) return <>{fallback}</>;
 
   return <>{children}</>;
-}
+};
+
+export default PermissionGuard;

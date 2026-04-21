@@ -1,22 +1,29 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { Button, Form } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { Button, Form } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 
-import { PageHeader, PermissionGuard } from '@/components/common';
-import { useUserGroups } from '@/hooks/useUserGroups';
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from '@/hooks/useUsers';
+// components
+import UserTable from "./components/UserTable";
+import UserFormModal from "./components/UserFormModal";
+import { PageHeader, PermissionGuard } from "@/components/common";
 
-import { UserTable } from './components/UserTable';
-import { UserFormModal } from './components/UserFormModal';
+// hooks
+import { useUserGroups } from "@/hooks/useUserGroups";
+import {
+  useUsers,
+  useCreateUser,
+  useUpdateUser,
+  useDeleteUser,
+} from "@/hooks/useUsers";
 
 const UsersPage: React.FC = () => {
-  const t = useTranslations('users');
+  const t = useTranslations("users");
   const [form] = Form.useForm();
   const [pageIndex, setPageIndex] = useState(1);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
@@ -26,17 +33,25 @@ const UsersPage: React.FC = () => {
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
 
-  const openCreate = () => { form.resetFields(); setEditId(null); setModalOpen(true); };
+  const openCreate = () => {
+    form.resetFields();
+    setEditId(null);
+    setModalOpen(true);
+  };
   const openEdit = (record: any) => {
-    form.setFieldsValue({ name: record.name, email: record.email, userGroupId: record.userGroupId, isActive: record.isActive });
+    form.setFieldsValue({
+      name: record.name,
+      email: record.email,
+      userGroupId: record.userGroupId,
+      isActive: record.isActive,
+    });
     setEditId(record.id);
     setModalOpen(true);
   };
 
   const handleSubmit = async (values: any) => {
     if (editId) {
-      const { password, ...rest } = values;
-      await updateMutation.mutateAsync({ id: editId, data: rest });
+      await updateMutation.mutateAsync({ id: editId, data: values });
     } else {
       await createMutation.mutateAsync(values);
     }
@@ -46,10 +61,12 @@ const UsersPage: React.FC = () => {
   return (
     <>
       <PageHeader
-        title={t('title')}
+        title={t("title")}
         actions={
           <PermissionGuard module="users" action="create">
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>{t('addUser')}</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              {t("addUser")}
+            </Button>
           </PermissionGuard>
         }
       />

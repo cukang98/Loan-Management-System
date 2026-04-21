@@ -1,14 +1,13 @@
-'use client';
+"use client";
 
-import type { ReactNode } from 'react';
+import type { ReactNode } from "react";
 
-import { useTranslations } from 'next-intl';
+import { useTranslations } from "next-intl";
 
-import { Modal, Drawer, Form, Button, Flex, Grid } from 'antd';
-import type { FormInstance } from 'antd';
+import { Modal, Drawer, Form, Button, Flex, Grid } from "antd";
+import type { FormInstance } from "antd";
 
-import styles from './FormModal.module.css';
-
+import styles from "./FormModal.module.css";
 
 const { useBreakpoint } = Grid;
 
@@ -23,7 +22,7 @@ interface FormModalProps {
   width?: number;
 }
 
-export function FormModal({
+const FormModal: React.FC<FormModalProps> = ({
   open,
   title,
   onClose,
@@ -32,8 +31,8 @@ export function FormModal({
   children,
   loading = false,
   width = 560,
-}: FormModalProps) {
-  const t = useTranslations('common');
+}) => {
+  const t = useTranslations("common");
   const screens = useBreakpoint();
   const isMobile = !screens.lg;
 
@@ -53,9 +52,9 @@ export function FormModal({
 
   const footer = (
     <Flex justify="flex-end" gap={8}>
-      <Button onClick={handleClose}>{t('cancel')}</Button>
+      <Button onClick={handleClose}>{t("cancel")}</Button>
       <Button type="primary" loading={loading} onClick={handleOk}>
-        {t('save')}
+        {t("save")}
       </Button>
     </Flex>
   );
@@ -94,4 +93,6 @@ export function FormModal({
       {formContent}
     </Modal>
   );
-}
+};
+
+export default FormModal;
